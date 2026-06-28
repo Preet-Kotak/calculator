@@ -3,7 +3,11 @@
 ;-----------------------------------------------------------------------------
 ;CONSTANTS
 ;----------------------------------------------------------------------------
-
+FRAME_LEFT   EQU 11
+FRAME_RIGHT  EQU 68
+FRAME_TOP    EQU 4
+FRAME_BOTTOM EQU 20
+FRAME_WIDTH  EQU 56
 
 ;-----------------------------------------------------------------------------
 ;DATA VARIABLES
@@ -122,6 +126,85 @@ PrintStringEnd:
         RET
 PrintStringAttr ENDP
 
+DrawFrame PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+
+        ; TOP BORDER
+        MOV DH, FRAME_TOP
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+
+        MOV AL, 201 ; DOUBLE LINE TOP LEFT CORNER
+        MOV BL, 8BH
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        INC DL
+        CALL SetCursor
+        MOV AL, 205 ; DOUBLE LINE HORIZONTAL
+        MOV CX, FRAME_WIDTH
+        CALL PrintCharAttr
+
+        MOV DL, FRAME_RIGHT
+        CALL SetCursor
+        MOV AL, 187 ; DOUBLE LINE TOP RIGHT CORNER
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        ; SIDE BORDERS
+        MOV DH, FRAME_TOP+1
+DrawSideLoop:
+        CMP DH, FRAME_BOTTOM
+        JGE DrawBottomBorder
+
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+        MOV AL, 186 ;   DOUBLE LINE VERTICAL
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        MOV DL, FRAME_RIGHT
+        CALL SetCursor
+        MOV AL, 186 ;   DOUBLE LINE VERTICAL
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        INC DH
+        JMP DrawSideLoop
+DrawBottomBorder:
+        ; BOTTOM BORDER
+        MOV DH, FRAME_BOTTOM
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+
+        MOV AL, 200 ; DOUBLE LINE BOTTOM LEFT CORNER
+        MOV BL, 8BH
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        INC DL
+        CALL SetCursor
+        MOV AL, 205 ; DOUBLE LINE HORIZONTAL
+        MOV CX, FRAME_WIDTH
+        CALL PrintCharAttr
+
+        MOV DL, FRAME_RIGHT
+        CALL SetCursor
+        MOV AL, 188 ; DOUBLE LINE BOTTOM RIGHT CORNER
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DrawFrame ENDP
+
+
 
 
 ;----------------------------------------------------------------------------
@@ -213,21 +296,23 @@ MAIN PROC
         ;CALL PrintCharAttr
 
         ;TEST : CYAN TITLE DARKGRAY BACKGROUND
-        MOV DH, 2
-        MOV DL, 15
-        CALL SetCursor
-        LEA SI, MSG_TITLE
-        MOV BL, 8BH
-        CALL PrintStringAttr
+        ;MOV DH, 2
+        ;MOV DL, 15
+        ;CALL SetCursor
+        ;LEA SI, MSG_TITLE
+        ;MOV BL, 8BH
+        ;CALL PrintStringAttr
 
         ;TEST : DUMMY BUTTON WHITE ON DARKGRAY
-        MOV DH, 5
-        MOV DL, 15
-        CALL SetCursor
-        LEA SI, MSG_NUMS
-        MOV BL, 8FH
-        CALL PrintStringAttr
+        ;MOV DH, 5
+        ;MOV DL, 15
+        ;CALL SetCursor
+        ;LEA SI, MSG_NUMS
+        ;MOV BL, 8FH
+        ;CALL PrintStringAttr
 
+        ;TEST BORDER
+        CALL DrawFrame
 
         ;WAIT FOR KEYPRESS
         MOV AH, 00H
