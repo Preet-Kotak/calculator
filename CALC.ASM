@@ -21,6 +21,26 @@
 ;SCREEN ROUTINES
 ;----------------------------------------------------------------------------
 
+ClearScreen PROC
+        ;CLEAR SCREEN USING BIOS SCROLL
+        MOV AH, 06H
+        MOV AL, 00H
+        MOV BH, 80H
+        MOV CX, 0000H
+        MOV DX, 184FH
+        INT 10H
+
+        ;MOV CURSOR TO 0,0
+        MOV AH, 02H
+        MOV BH, 00H
+        MOV DH, 00H
+        MOV DL, 00H
+        INT 10H
+        RET
+ClearScreen ENDP
+
+
+
 
 ;----------------------------------------------------------------------------
 ;KEYBOARD ROUTINES
@@ -52,6 +72,14 @@
 MAIN PROC
         MOV AX, @DATA
         MOV DS, AX
+
+        ;DISABLE BLINKING
+        MOV AX, 1003H
+        MOV BL, 00H
+        INT 10H
+
+        ;CLEAR SCREEN TO DARKGRAY
+        CALL ClearScreen
 
         ;PRINT MESSAGE
         MOV AH, 09H
