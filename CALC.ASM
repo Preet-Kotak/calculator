@@ -9,11 +9,12 @@
 ;DATA VARIABLES
 ;----------------------------------------------------------------------------
 .DATA
-         ;MSG DB 'Calculator starting. . . ',13,10,'$'
-         ;MSG_TOP DB 'TOP LEFT$'
-         ;MSG_MIDDLE DB 'MIDDLE$'
-         ;MSG_BOTTOM DB 'NEAR BOTTOM$'
-
+        ;MSG DB 'Calculator starting. . . ',13,10,'$'
+        ;MSG_TOP DB 'TOP LEFT$'
+        ;MSG_MIDDLE DB 'MIDDLE$'
+        ;MSG_BOTTOM DB 'NEAR BOTTOM$'
+        MSG_TITLE DB '8086 CALCULATOR$'
+        MSG_NUMS DB '7 8 9 / 4 5 6 * $'
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -66,7 +67,7 @@ SetCursor PROC
         RET
 SetCursor ENDP
 
-PrintCharAttar PROC
+PrintCharAttr PROC
         ;AL <- ASCII CHARACTER
         ;BL <- COLOUR ATTRIBUTE
         ;CX <- REPEAT COUNT
@@ -82,7 +83,46 @@ PrintCharAttar PROC
         POP BX
         POP AX
         RET
-PrintCharAttar ENDP
+PrintCharAttr ENDP
+
+PrintStringAttr PROC
+        ;SI <- POINTER TO STRING
+        ;BL <- COLOUR ATTRIBUTE
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+PrintStringLoop:
+        MOV AL, [SI]
+        CMP AL, '$'
+        JE PrintStringEnd
+
+        INC SI
+
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        ;GET CURSUR POSITION
+        MOV AH, 03H
+        MOV BH, 00H
+        INT 10H
+
+        INC DL
+        CALL SetCursor
+
+        JMP PrintStringLoop
+PrintStringEnd:
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+PrintStringAttr ENDP
+
+
 
 ;----------------------------------------------------------------------------
 ;KEYBOARD ROUTINES
@@ -153,24 +193,40 @@ MAIN PROC
         ;INT 21H
 
         ;TEST : SINGLE RED 'X' GARKGRAY BACKGOUND
-        MOV DH, 5
-        MOV DL, 10
-        CALL SetCursor
-
-        MOV AL, 'X'
-        MOV BL, 84H
-        MOV CX, 1
-        CALL PrintCharAttar
+        ;MOV DH, 5
+        ;MOV DL, 10
+        ;CALL SetCursor
+        
+        ;MOV AL, 'X'
+        ;MOV BL, 84H
+        ;MOV CX, 1
+        ;CALL PrintCharAttr
 
         ;TEST : REPEAT CYAN '@' 20 TIMES BLACK BACKGROUND
-        MOV DH, 7
-        MOV DL, 10
-        CALL SetCursor
+        ;MOV DH, 7
+        ;MOV DL, 10
+        ;CALL SetCursor
 
-        MOV AL, '@'
-        MOV BL, 0BH
-        MOV CX, 20
-        CALL PrintCharAttar
+        ;MOV AL, '@'
+        ;MOV BL, 0BH
+        ;MOV CX, 20
+        ;CALL PrintCharAttr
+
+        ;TEST : CYAN TITLE DARKGRAY BACKGROUND
+        MOV DH, 2
+        MOV DL, 15
+        CALL SetCursor
+        LEA SI, MSG_TITLE
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        ;TEST : DUMMY BUTTON WHITE ON DARKGRAY
+        MOV DH, 5
+        MOV DL, 15
+        CALL SetCursor
+        LEA SI, MSG_NUMS
+        MOV BL, 8FH
+        CALL PrintStringAttr
 
 
         ;WAIT FOR KEYPRESS
