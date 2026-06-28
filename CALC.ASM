@@ -10,9 +10,9 @@
 ;----------------------------------------------------------------------------
 .DATA
          ;MSG DB 'Calculator starting. . . ',13,10,'$'
-         MSG_TOP DB 'TOP LEFT$'
-         MSG_MIDDLE DB 'MIDDLE$'
-         MSG_BOTTOM DB 'NEAR BOTTOM$'
+         ;MSG_TOP DB 'TOP LEFT$'
+         ;MSG_MIDDLE DB 'MIDDLE$'
+         ;MSG_BOTTOM DB 'NEAR BOTTOM$'
 
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
@@ -66,7 +66,23 @@ SetCursor PROC
         RET
 SetCursor ENDP
 
+PrintCharAttar PROC
+        ;AL <- ASCII CHARACTER
+        ;BL <- COLOUR ATTRIBUTE
+        ;CX <- REPEAT COUNT
+        PUSH AX
+        PUSH BX
+        PUSH CX
 
+        MOV AH, 09H
+        MOV BH, 00H
+        INT 10H
+
+        POP CX
+        POP BX
+        POP AX
+        RET
+PrintCharAttar ENDP
 
 ;----------------------------------------------------------------------------
 ;KEYBOARD ROUTINES
@@ -113,30 +129,48 @@ MAIN PROC
         ;INT 21H
 
         ;TEST : TOP
-        MOV DH, 0
-        MOV DL, 0
-        CALL SetCursor
-        MOV AH, 09H
-        LEA DX, MSG_TOP
-        INT 21H
+        ;MOV DH, 0
+        ;MOV DL, 0
+        ;CALL SetCursor
+        ;MOV AH, 09H
+        ;LEA DX, MSG_TOP
+        ;INT 21H
 
         ;TEST : MIDDLE
-        MOV DH, 12
-        MOV DL, 30
-        CALL SetCursor
-        MOV AH, 09H
-        LEA DX, MSG_MIDDLE
-        INT 21H
+        ;MOV DH, 12
+        ;MOV DL, 30
+        ;CALL SetCursor
+        ;MOV AH, 09H
+        ;LEA DX, MSG_MIDDLE
+        ;INT 21H
 
         ;TEST : BOTTOM
-        MOV DH, 23
-        MOV DL, 65
+        ;MOV DH, 23
+        ;MOV DL, 65
+        ;CALL SetCursor
+        ;MOV AH, 09H
+        ;LEA DX, MSG_BOTTOM
+        ;INT 21H
+
+        ;TEST : SINGLE RED 'X' GARKGRAY BACKGOUND
+        MOV DH, 5
+        MOV DL, 10
         CALL SetCursor
-        MOV AH, 09H
-        LEA DX, MSG_BOTTOM
-        INT 21H
 
+        MOV AL, 'X'
+        MOV BL, 84H
+        MOV CX, 1
+        CALL PrintCharAttar
 
+        ;TEST : REPEAT CYAN '@' 20 TIMES BLACK BACKGROUND
+        MOV DH, 7
+        MOV DL, 10
+        CALL SetCursor
+
+        MOV AL, '@'
+        MOV BL, 0BH
+        MOV CX, 20
+        CALL PrintCharAttar
 
 
         ;WAIT FOR KEYPRESS
