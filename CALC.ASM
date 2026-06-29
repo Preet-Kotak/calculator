@@ -3,20 +3,67 @@
 ;-----------------------------------------------------------------------------
 ;CONSTANTS
 ;----------------------------------------------------------------------------
-FRAME_LEFT   EQU 11
-FRAME_RIGHT  EQU 68
-FRAME_TOP    EQU 4
-FRAME_BOTTOM EQU 20
-FRAME_WIDTH  EQU 56
+FRAME_LEFT    EQU 11
+FRAME_RIGHT   EQU 68
+FRAME_TOP     EQU 4
+FRAME_BOTTOM  EQU 20
+FRAME_WIDTH   EQU 56
 
-TITLE_ROW    EQU 5
-TITLE_COL    EQU 32
+TITLE_ROW     EQU 5
+TITLE_COL     EQU 32
+               
+DISP_LEFT     EQU 13
+DISP_RIGHT    EQU 66
+DISP_TOP      EQU 7
+DISP_BOTTOM   EQU 9
+DISP_WIDTH    EQU 52
+              
+;ROW 11       
+BTN_HEX       EQU 0000H
+BTN_BIN       EQU 0001H
+BTN_DEC       EQU 0002H
+BTN_FRC       EQU 0003H
+BTN_MS        EQU 0004H
+BTN_MR        EQU 0005H
+BTN_MC        EQU 0006H
+              
+;ROW 13       
+BTN_7         EQU 0100H
+BTN_8         EQU 0101H
+BTN_9         EQU 0102H
+BTN_DIV       EQU 0103H
+BTN_MOD       EQU 0104H
+BTN_POW       EQU 0105H
+BTN_CLR       EQU 0106H
+              
+;ROW 15       
+BTN_4         EQU 0200H
+BTN_5         EQU 0201H
+BTN_6         EQU 0202H
+BTN_MUL       EQU 0203H
+BTN_SQR       EQU 0204H
+BTN_ABS       EQU 0205H
+BTN_CE        EQU 0206H
 
-DISP_LEFT    EQU 13
-DISP_RIGHT   EQU 66
-DISP_TOP     EQU 7
-DISP_BOTTOM  EQU 9
-DISP_WIDTH   EQU 52
+;ROW 17       
+BTN_1         EQU 0300H
+BTN_2         EQU 0301H
+BTN_3         EQU 0302H
+BTN_SUB       EQU 0303H
+BTN_NEG       EQU 0304H
+BTN_DEL       EQU 0305H
+BTN_PCT       EQU 0306H
+
+;ROW 19
+BTN_00        EQU 0400H
+BTN_0         EQU 0401H
+BTN_DOT       EQU 0402H
+BTN_SIGN      EQU 0403H
+BTN_ADD       EQU 0404H
+BTN_EQ        EQU 0405H
+
+TOTAL_BUTTONS EQU 34
+
 
 ;-----------------------------------------------------------------------------
 ;DATA VARIABLES
@@ -81,7 +128,195 @@ DISP_WIDTH   EQU 52
         MSG_DN           DB 'DN $'
         MSG_LT           DB 'LT $'
         MSG_RT           DB 'RT $'
+
+        selected_button  DW BTN_1
+
+        ;BUTTON METADATA TABLE - 7 bytes per entry: ID[2], Row[1], Col[1], Lbl[2], Color[1]
+        BTN_TABLE LABEL BYTE
+
+        ;ROW 11
+
+        DW BTN_HEX  
+        DB 11, 13  
+        DW OFFSET LBL_HEX  
+        DB 8BH
+
+        DW BTN_BIN  
+        DB 11, 21  
+        DW OFFSET LBL_BIN  
+        DB 8BH
+
+        DW BTN_DEC  
+        DB 11, 29  
+        DW OFFSET LBL_DEC  
+        DB 8BH
+
+        DW BTN_FRC  
+        DB 11, 37  
+        DW OFFSET LBL_FRC  
+        DB 8BH
+
+        DW BTN_MS   
+        DB 11, 45  
+        DW OFFSET LBL_MS   
+        DB 8BH
+
+        DW BTN_MR   
+        DB 11, 53  
+        DW OFFSET LBL_MR   
+        DB 8BH
+
+        DW BTN_MC   
+        DB 11, 61  
+        DW OFFSET LBL_MC   
+        DB 8BH
+
+
+        ;ROW 13 
+
+        DW BTN_7    
+        DB 13, 13  
+        DW OFFSET LBL_7    
+        DB 8FH
+
+        DW BTN_8    
+        DB 13, 21  
+        DW OFFSET LBL_8    
+        DB 8FH
+
+        DW BTN_9    
+        DB 13, 29  
+        DW OFFSET LBL_9    
+        DB 8FH
+
+        DW BTN_DIV  
+        DB 13, 37  
+        DW OFFSET LBL_DIV  
+        DB 8BH
+
+        DW BTN_MOD  
+        DB 13, 45  
+        DW OFFSET LBL_MOD  
+        DB 8BH
+
+        DW BTN_POW  
+        DB 13, 53  
+        DW OFFSET LBL_POW  
+        DB 8BH
+
+        DW BTN_CLR  
+        DB 13, 61  
+        DW OFFSET LBL_CLR  
+        DB 8BH
+
         
+        ; ROW 15
+
+        DW BTN_4    
+        DB 15, 13  
+        DW OFFSET LBL_4    
+        DB 8FH
+
+        DW BTN_5    
+        DB 15, 21  
+        DW OFFSET LBL_5    
+        DB 8FH
+
+        DW BTN_6    
+        DB 15, 29  
+        DW OFFSET LBL_6    
+        DB 8FH
+
+        DW BTN_MUL  
+        DB 15, 37  
+        DW OFFSET LBL_MUL  
+        DB 8BH
+
+        DW BTN_SQR  
+        DB 15, 45  
+        DW OFFSET LBL_SQR  
+        DB 8BH
+
+        DW BTN_ABS  
+        DB 15, 53  
+        DW OFFSET LBL_ABS  
+        DB 8BH
+
+        DW BTN_CE   
+        DB 15, 61  
+        DW OFFSET LBL_CE   
+        DB 8BH
+
+        
+        ;ROW 17
+        
+        DW BTN_1    
+        DB 17, 13  
+        DW OFFSET LBL_1    
+        DB 8FH
+
+        DW BTN_2    
+        DB 17, 21  
+        DW OFFSET LBL_2    
+        DB 8FH
+
+        DW BTN_3    
+        DB 17, 29  
+        DW OFFSET LBL_3    
+        DB 8FH
+
+        DW BTN_SUB  
+        DB 17, 37  
+        DW OFFSET LBL_SUB  
+        DB 8BH
+
+        DW BTN_NEG  
+        DB 17, 45  
+        DW OFFSET LBL_NEG  
+        DB 8BH
+
+        DW BTN_DEL  
+        DB 17, 53  
+        DW OFFSET LBL_DEL  
+        DB 8BH
+
+        DW BTN_PCT  
+        DB 17, 61  
+        DW OFFSET LBL_PCT  
+        DB 8BH
+
+        
+        ; ROW19
+        
+        DW BTN_00   
+        DB 19, 13  
+        DW OFFSET LBL_00   
+        DB 8FH
+
+        DW BTN_0    
+        DB 19, 21  
+        DW OFFSET LBL_0    
+        DB 8FH
+
+        DW BTN_DOT  
+        DB 19, 29  
+        DW OFFSET LBL_DOT  
+        DB 8FH
+
+        DW BTN_SIGN 
+        DB 19, 37  
+        DW OFFSET LBL_SIGN 
+        DB 8BH
+
+        DW BTN_ADD  
+        DB 19, 45  
+        DW OFFSET LBL_ADD  
+        DB 8BH
+
+        DW BTN_EQ   
+        DB 19, 53  
+        DW OFFSET LBL_EQ   
+        DB 8BH  
 
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
@@ -405,235 +640,52 @@ DrawDisplay PROC
         RET
 DrawDisplay ENDP
 
-DrawButtons PROC
+DrawButton PROC
         PUSH AX
         PUSH BX
         PUSH DX
         PUSH SI
 
-        ; ROW 11
-        MOV DH, 11
-
-        MOV DL, 13
+        ; READ ROW AND COL NUMBER FROM TABLE
+        MOV DH, [SI+2]
+        MOV DL, [SI+3]
         CALL SetCursor
-        LEA SI, LBL_HEX
-        MOV BL, 8BH
-        CALL PrintStringAttr
 
-        MOV DL, 21
-        CALL SetCursor
-        LEA SI, LBL_BIN
-        MOV BL, 8BH
-        CALL PrintStringAttr
+        ;READ COLOUR FROM TABLE
+        MOV BL, [SI+6]
 
-        MOV DL, 29
-        CALL SetCursor
-        LEA SI, LBL_DEC
-        MOV BL, 8BH
-        CALL PrintStringAttr
+        ;IF SELETCED 
+        MOV AX, [SI]
+        CMP AX, selected_button
+        JNE NotSelected
+        MOV BL, 30H
 
-        MOV DL, 37
-        CALL SetCursor
-        LEA SI, LBL_FRC
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 45
-        CALL SetCursor
-        LEA SI, LBL_MS
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 53
-        CALL SetCursor
-        LEA SI, LBL_MR
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 61
-        CALL SetCursor
-        LEA SI, LBL_MC
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        ; ROW 13
-        MOV DH, 13
-
-        MOV DL, 13
-        CALL SetCursor
-        LEA SI, LBL_7
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 21
-        CALL SetCursor
-        LEA SI, LBL_8
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 29
-        CALL SetCursor
-        LEA SI, LBL_9
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 37
-        CALL SetCursor
-        LEA SI, LBL_DIV
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 45
-        CALL SetCursor
-        LEA SI, LBL_MOD
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 53
-        CALL SetCursor
-        LEA SI, LBL_POW
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 61
-        CALL SetCursor
-        LEA SI, LBL_CLR
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        ; ROW 15
-        MOV DH, 15
-
-        MOV DL, 13
-        CALL SetCursor
-        LEA SI, LBL_4
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 21
-        CALL SetCursor
-        LEA SI, LBL_5
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 29
-        CALL SetCursor
-        LEA SI, LBL_6
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 37
-        CALL SetCursor
-        LEA SI, LBL_MUL
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 45
-        CALL SetCursor
-        LEA SI, LBL_SQR
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 53
-        CALL SetCursor
-        LEA SI, LBL_ABS
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 61
-        CALL SetCursor
-        LEA SI, LBL_CE
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        ; ROW 17
-        MOV DH, 17
-
-        MOV DL, 13
-        CALL SetCursor
-        LEA SI, LBL_1
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 21
-        CALL SetCursor
-        LEA SI, LBL_2
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 29
-        CALL SetCursor
-        LEA SI, LBL_3
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 37
-        CALL SetCursor
-        LEA SI, LBL_SUB
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 45
-        CALL SetCursor
-        LEA SI, LBL_NEG
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 53
-        CALL SetCursor
-        LEA SI, LBL_DEL
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 61
-        CALL SetCursor
-        LEA SI, LBL_PCT
-        MOV BL, 8BH
-        CALL PrintStringAttr
-        
-        ; ROW 19
-        MOV DH, 19
-
-        MOV DL, 13
-        CALL SetCursor
-        LEA SI, LBL_00
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 21
-        CALL SetCursor
-        LEA SI, LBL_0
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 29
-        CALL SetCursor
-        LEA SI, LBL_DOT
-        MOV BL, 8FH
-        CALL PrintStringAttr
-
-        MOV DL, 37
-        CALL SetCursor
-        LEA SI, LBL_SIGN
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 45
-        CALL SetCursor
-        LEA SI, LBL_ADD
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        MOV DL, 53
-        CALL SetCursor
-        LEA SI, LBL_EQ
-        MOV BL, 8BH
+NotSelected:
+        ;READ LABEL
+        MOV SI, [SI+4]
         CALL PrintStringAttr
 
         POP SI
         POP DX
         POP BX
         POP AX
+        RET
+DrawButton ENDP
+
+DrawButtons PROC
+        PUSH CX
+        PUSH SI
+
+        LEA SI, BTN_TABLE
+        MOV CX, TOTAL_BUTTONS
+
+DrawButtonsLoop:
+        CALL DrawButton
+        ADD SI, 7
+        LOOP DrawButtonsLoop
+
+        POP SI
+        POP CX
         RET
 DrawButtons ENDP
        
@@ -649,24 +701,48 @@ ReadKeY PROC
         RET
 ReadKey ENDP
 
-HandleNormalChar PROC
-        ;PRINT CHARACTER
+ActivateSelectedButton PROC
         PUSH AX
         PUSH BX
         PUSH CX
+        PUSH DX
+        PUSH SI
 
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
+        LEA SI, BTN_TABLE
+        MOV CX, TOTAL_BUTTONS
+FindBtnLoop:
+        MOV AX, [SI]         
+        CMP AX, selected_button
+        JE FoundBtn
+        ADD SI, 7             
+        LOOP FindBtnLoop
+        JMP ActDone
+
+FoundBtn:
+
+        MOV DH, 6
+        MOV DL, 13
         CALL SetCursor
+        MOV SI, [SI+4]
+        MOV BL, 8FH         
+        CALL PrintStringAttr
 
-        MOV BL, 8FH
-        MOV CX, 1
-        CALL PrintCharAttR
-
+ActDone:
+        POP SI
+        POP DX
         POP CX
         POP BX
         POP AX
+        RET 
+ActivateSelectedButton ENDP
+
+HandleNormalChar PROC
+        CMP AL, 0DH 
+        JNE SkipActivate
+        CALL ActivateSelectedButton
+SkipActivate:
         RET
+
 HandleNormalChar ENDP
 
 HandleExtendedChar PROC
@@ -676,55 +752,63 @@ HandleExtendedChar PROC
         PUSH SI
 
         CMP AH, 48H   ;UP
-        JE HandleUp
+        JE NavUp
         CMP AH, 50H   ;DOWN
-        JE HandleDown
+        JE NavDown
         CMP AH, 4BH   ;LEFT
-        JE HandleLeft
+        JE NavLeft
         CMP AH, 4DH   ;RIGHT
-        JE HandleRight
-
-        JMP ToRET
-
-HandleUp:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_UP
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        JMP ToRET
-
-HandleDown:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_DN
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        JMP ToRET
-
-Handleleft:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_LT
-        MOV BL, 8BH
-        CALL PrintStringAttr
+        JE NavRight
         
-        JMP ToRET
+        JMP NavDone
 
-HandleRight:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_RT
-        MOV BL, 8BH
-        CALL PrintStringAttr
+NavDown:
+        MOV AX, selected_button
+        CMP AH, 4
+        JE NavDone
+        INC AH
 
-ToRET:
+        ;HANLDE '='
+        CMP AH, 4
+        JNE UpdateSelection
+        CMP AL, 6
+        JNE UpdateSelection
+        MOV AL, 5
+        JMP UpdateSelection
+
+NavUp:
+        MOV AX, selected_button
+        CMP AH, 0
+        JE NavDone
+        DEC AH
+        JMP UpdateSelection
+
+NavLeft:
+        MOV AX, selected_button
+        CMP AL, 0
+        JE NavDone
+        DEC AL
+        JMP UpdateSelection
+
+NavRight:
+        MOV AX, selected_button
+        CMP AH, 4
+        JE Row4
+        CMP AL, 6
+        JE NavDone
+        INC AL
+        JMP UpdateSelection
+
+Row4:
+        CMP AL, 5
+        JE NavDone
+        INC AL
+
+UpdateSelection:
+        MOV selected_button, AX
+        CALL DrawButtons
+
+NavDone:
         POP SI
         POP DX
         POP BX
