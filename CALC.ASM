@@ -649,6 +649,89 @@ ReadKeY PROC
         RET
 ReadKey ENDP
 
+HandleNormalChar PROC
+        ;PRINT CHARACTER
+        PUSH AX
+        PUSH BX
+        PUSH CX
+
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+
+        MOV BL, 8FH
+        MOV CX, 1
+        CALL PrintCharAttR
+
+        POP CX
+        POP BX
+        POP AX
+        RET
+HandleNormalChar ENDP
+
+HandleExtendedChar PROC
+        PUSH AX
+        PUSH BX
+        PUSH DX
+        PUSH SI
+
+        CMP AH, 48H   ;UP
+        JE HandleUp
+        CMP AH, 50H   ;DOWN
+        JE HandleDown
+        CMP AH, 4BH   ;LEFT
+        JE HandleLeft
+        CMP AH, 4DH   ;RIGHT
+        JE HandleRight
+
+        JMP ToRET
+
+HandleUp:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_UP
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        JMP ToRET
+
+HandleDown:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_DN
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        JMP ToRET
+
+Handleleft:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_LT
+        MOV BL, 8BH
+        CALL PrintStringAttr
+        
+        JMP ToRET
+
+HandleRight:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_RT
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+ToRET:
+        POP SI
+        POP DX
+        POP BX
+        POP AX
+        RET
+HandleExtendedChar ENDP
+
 ;----------------------------------------------------------------------------
 ;INPUT ROUTINES
 ;----------------------------------------------------------------------------
@@ -762,73 +845,15 @@ MainLoop:
 
         ; CHECK FOR SPECIAL KEY / EXTENDED
         CMP AL, 00H
-        JE CheckSpecial
+        JE IsExtended
         CMP AL, 0E0H
-        JE CheckSpecial
+        JE IsExtended
 
-        ;PRINT CHARATER
-        PUSH AX
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        POP AX
-
-        MOV BL, 8FH
-        MOV CX, 1
-        CALL PrintCharAttR
-
+        CALL HandleNormalChar
         JMP MainLoop
 
-CheckSpecial:
-        CMP AH, 48H   ;UP
-        JE HandleUp
-        CMP AH, 50H   ;DOWN
-        JE HandleDown
-        CMP AH, 4BH   ;LEFT
-        JE HandleLeft
-        CMP AH, 4DH   ;RIGHT
-        JE HandleRight
-
-        JMP MainLoop
-
-HandleUp:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_UP
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        JMP MainLoop
-
-HandleDown:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_DN
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        JMP MainLoop
-
-Handleleft:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_LT
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
-        JMP MainLoop
-
-HandleRight:
-        MOV DH, DISP_TOP-1
-        MOV DL, DISP_RIGHT-30
-        CALL SetCursor
-        LEA SI, MSG_RT
-        MOV BL, 8BH
-        CALL PrintStringAttr
-
+IsExtended:
+        CALL HandleExtendedChar
         JMP MainLoop
 
 Exit:
