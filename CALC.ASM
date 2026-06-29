@@ -77,8 +77,11 @@ DISP_WIDTH   EQU 52
         LBL_ADD          DB '[ + ]$'
         LBL_EQ           DB '[     =     ]$'
        
-
-
+        MSG_UP           DB 'UP $'
+        MSG_DN           DB 'DN $'
+        MSG_LT           DB 'LT $'
+        MSG_RT           DB 'RT $'
+        
 
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
@@ -757,7 +760,13 @@ MainLoop:
         CMP AL, 1BH
         JE Exit
 
-        ;TEST PRINT CHARATER
+        ; CHECK FOR SPECIAL KEY / EXTENDED
+        CMP AL, 00H
+        JE CheckSpecial
+        CMP AL, 0E0H
+        JE CheckSpecial
+
+        ;PRINT CHARATER
         PUSH AX
         MOV DH, DISP_TOP-1
         MOV DL, DISP_RIGHT-30
@@ -767,6 +776,58 @@ MainLoop:
         MOV BL, 8FH
         MOV CX, 1
         CALL PrintCharAttR
+
+        JMP MainLoop
+
+CheckSpecial:
+        CMP AH, 48H   ;UP
+        JE HandleUp
+        CMP AH, 50H   ;DOWN
+        JE HandleDown
+        CMP AH, 4BH   ;LEFT
+        JE HandleLeft
+        CMP AH, 4DH   ;RIGHT
+        JE HandleRight
+
+        JMP MainLoop
+
+HandleUp:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_UP
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        JMP MainLoop
+
+HandleDown:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_DN
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        JMP MainLoop
+
+Handleleft:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_LT
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        JMP MainLoop
+
+HandleRight:
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        LEA SI, MSG_RT
+        MOV BL, 8BH
+        CALL PrintStringAttr
 
         JMP MainLoop
 
