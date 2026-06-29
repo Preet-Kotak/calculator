@@ -23,12 +23,63 @@ DISP_WIDTH   EQU 52
 ;----------------------------------------------------------------------------
 .DATA
         ;MSG             DB 'Calculator starting. . . ',13,10,'$'
+
         ;MSG_TOP         DB 'TOP LEFT$'
         ;MSG_MIDDLE      DB 'MIDDLE$'
         ;MSG_BOTTOM      DB 'NEAR BOTTOM$'
-        MSG_TITLE        DB '8086 CALCULATOR$'
+
         ;MSG_NUMS        DB '7 8 9 / 4 5 6 * $'
+
+        MSG_TITLE        DB '8086 CALCULATOR$'
         MSG_INITIAL_VAL  DB '0.00$'
+
+        ;ROW 11
+        LBL_HEX          DB '[HEX]$'
+        LBL_BIN          DB '[BIN]$'
+        LBL_DEC          DB '[DEC]$'
+        LBL_FRC          DB '[FRC]$'
+        LBL_MS           DB '[MS ]$'
+        LBL_MR           DB '[MR ]$'
+        LBL_MC           DB '[MC ]$'
+
+        ;ROW 13
+        LBL_7            DB '[ 7 ]$'
+        LBL_8            DB '[ 8 ]$'
+        LBL_9            DB '[ 9 ]$'
+        LBL_DIV          DB '[ / ]$'
+        LBL_MOD          DB '[MOD]$'
+        LBL_POW          DB '[POW]$'
+        LBL_CLR          DB '[CLR]$'
+
+        ;ROW 15
+        LBL_4            DB '[ 4 ]$'
+        LBL_5            DB '[ 5 ]$'
+        LBL_6            DB '[ 6 ]$'
+        LBL_MUL          DB '[ * ]$'
+        LBL_SQR          DB '[SQR]$'
+        LBL_ABS          DB '[ABS]$'
+        LBL_CE           DB '[CE ]$'
+
+        ;ROW 17
+        LBL_1            DB '[ 1 ]$'
+        LBL_2            DB '[ 2 ]$'
+        LBL_3            DB '[ 3 ]$'
+        LBL_SUB          DB '[ - ]$'
+        LBL_NEG          DB '[NEG]$'
+        LBL_DEL          DB '[DEL]$'
+        LBL_PCT          DB '[ % ]$'
+
+        ;ROW 19
+        LBL_SIGN         DB '[+/-]$'
+        LBL_0            DB '[ 0 ]$'
+        LBL_00           DB '[00 ]$'
+        LBL_DOT          DB '[ . ]$'
+        LBL_ADD          DB '[ + ]$'
+        LBL_EQ           DB '[     =     ]$'
+       
+
+
+
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -350,6 +401,238 @@ DrawDisplay PROC
         POP AX
         RET
 DrawDisplay ENDP
+
+DrawButtons PROC
+        PUSH AX
+        PUSH BX
+        PUSH DX
+        PUSH SI
+
+        ; ROW 11
+        MOV DH, 11
+
+        MOV DL, 13
+        CALL SetCursor
+        LEA SI, LBL_HEX
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 21
+        CALL SetCursor
+        LEA SI, LBL_BIN
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 29
+        CALL SetCursor
+        LEA SI, LBL_DEC
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 37
+        CALL SetCursor
+        LEA SI, LBL_FRC
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 45
+        CALL SetCursor
+        LEA SI, LBL_MS
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 53
+        CALL SetCursor
+        LEA SI, LBL_MR
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 61
+        CALL SetCursor
+        LEA SI, LBL_MC
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        ; ROW 13
+        MOV DH, 13
+
+        MOV DL, 13
+        CALL SetCursor
+        LEA SI, LBL_7
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 21
+        CALL SetCursor
+        LEA SI, LBL_8
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 29
+        CALL SetCursor
+        LEA SI, LBL_9
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 37
+        CALL SetCursor
+        LEA SI, LBL_DIV
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 45
+        CALL SetCursor
+        LEA SI, LBL_MOD
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 53
+        CALL SetCursor
+        LEA SI, LBL_POW
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 61
+        CALL SetCursor
+        LEA SI, LBL_CLR
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        ; ROW 15
+        MOV DH, 15
+
+        MOV DL, 13
+        CALL SetCursor
+        LEA SI, LBL_4
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 21
+        CALL SetCursor
+        LEA SI, LBL_5
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 29
+        CALL SetCursor
+        LEA SI, LBL_6
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 37
+        CALL SetCursor
+        LEA SI, LBL_MUL
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 45
+        CALL SetCursor
+        LEA SI, LBL_SQR
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 53
+        CALL SetCursor
+        LEA SI, LBL_ABS
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 61
+        CALL SetCursor
+        LEA SI, LBL_CE
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        ; ROW 17
+        MOV DH, 17
+
+        MOV DL, 13
+        CALL SetCursor
+        LEA SI, LBL_1
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 21
+        CALL SetCursor
+        LEA SI, LBL_2
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 29
+        CALL SetCursor
+        LEA SI, LBL_3
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 37
+        CALL SetCursor
+        LEA SI, LBL_SUB
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 45
+        CALL SetCursor
+        LEA SI, LBL_NEG
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 53
+        CALL SetCursor
+        LEA SI, LBL_DEL
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 61
+        CALL SetCursor
+        LEA SI, LBL_PCT
+        MOV BL, 8BH
+        CALL PrintStringAttr
+        
+        ; ROW 19
+        MOV DH, 19
+
+        MOV DL, 13
+        CALL SetCursor
+        LEA SI, LBL_00
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 21
+        CALL SetCursor
+        LEA SI, LBL_0
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 29
+        CALL SetCursor
+        LEA SI, LBL_DOT
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DL, 37
+        CALL SetCursor
+        LEA SI, LBL_SIGN
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 45
+        CALL SetCursor
+        LEA SI, LBL_ADD
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        MOV DL, 53
+        CALL SetCursor
+        LEA SI, LBL_EQ
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        POP SI
+        POP DX
+        POP BX
+        POP AX
+        RET
+DrawButtons ENDP
        
 ;----------------------------------------------------------------------------
 ;KEYBOARD ROUTINES
@@ -463,6 +746,9 @@ MAIN PROC
 
         ;TEST DIDPLAY
         CALL DrawDisplay
+
+        ;TEST BUTTONS
+        CALL DrawButtons
 
         ;WAIT FOR KEYPRESS
         MOV AH, 00H
