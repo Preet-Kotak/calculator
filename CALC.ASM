@@ -12,17 +12,23 @@ FRAME_WIDTH  EQU 56
 TITLE_ROW    EQU 5
 TITLE_COL    EQU 32
 
+DISP_LEFT    EQU 13
+DISP_RIGHT   EQU 66
+DISP_TOP     EQU 7
+DISP_BOTTOM  EQU 9
+DISP_WIDTH   EQU 52
+
 ;-----------------------------------------------------------------------------
 ;DATA VARIABLES
 ;----------------------------------------------------------------------------
 .DATA
-        ;MSG DB 'Calculator starting. . . ',13,10,'$'
-        ;MSG_TOP DB 'TOP LEFT$'
-        ;MSG_MIDDLE DB 'MIDDLE$'
-        ;MSG_BOTTOM DB 'NEAR BOTTOM$'
-        MSG_TITLE DB '8086 CALCULATOR$'
-        ;MSG_NUMS DB '7 8 9 / 4 5 6 * $'
-        
+        ;MSG             DB 'Calculator starting. . . ',13,10,'$'
+        ;MSG_TOP         DB 'TOP LEFT$'
+        ;MSG_MIDDLE      DB 'MIDDLE$'
+        ;MSG_BOTTOM      DB 'NEAR BOTTOM$'
+        MSG_TITLE        DB '8086 CALCULATOR$'
+        ;MSG_NUMS        DB '7 8 9 / 4 5 6 * $'
+        MSG_INITIAL_VAL  DB '0.00$'
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -263,6 +269,88 @@ DrawTitle PROC
 DrawTitle ENDP
 
 
+DrawDisplay PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        ; TOP BORDER
+        MOV DH, DISP_TOP
+        MOV DL, DISP_LEFT
+        CALL SetCursor
+
+        MOV AL, 218 ;SINGLE LINE TOP LEFT CORNER
+        MOV BL, 8BH
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        INC DL
+        CALL SetCursor
+        MOV AL, 196 ; SINGLE LINE HORIZONTAL
+        MOV CX, DISP_WIDTH
+        CALL PrintCharAttr
+
+        MOV DL, DISP_RIGHT
+        CALL SetCursor
+        MOV AL, 191 ; SINGLE LINE TOP RIGHT CORNER
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        ; SIDE BORDERS
+        MOV DH, DISP_TOP+1
+
+        MOV DL, DISP_LEFT
+        CALL SetCursor
+        MOV AL, 179 ;   SINGLE LINE VERTICAL
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        MOV DL, DISP_RIGHT
+        CALL SetCursor
+        MOV AL, 179 ;   SINGLE LINE VERTICAL
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        ; BOTTOM BORDER
+        MOV DH, DISP_BOTTOM
+        MOV DL, DISP_LEFT
+        CALL SetCursor
+
+        MOV AL, 192 ; SINGLE LINE BOTTOM LEFT CORNER
+        MOV BL, 8BH
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        INC DL
+        CALL SetCursor
+        MOV AL, 196 ; SINGLE LINE HORIZONTAL
+        MOV CX, DISP_WIDTH
+        CALL PrintCharAttr
+
+        MOV DL, DISP_RIGHT
+        CALL SetCursor
+        MOV AL, 217 ; SINGLE LINE BOTTOM RIGHT CORNER
+        MOV CX, 1
+        CALL PrintCharAttr
+
+        ;INITIAL DISPLAY
+        MOV DH, DISP_TOP+1
+        MOV DL, DISP_RIGHT-5
+        CALL SetCursor
+        LEA SI, MSG_INITIAL_VAL
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DrawDisplay ENDP
+       
 ;----------------------------------------------------------------------------
 ;KEYBOARD ROUTINES
 ;----------------------------------------------------------------------------
@@ -373,6 +461,8 @@ MAIN PROC
         ;TEST TITLE
         CALL DrawTitle
 
+        ;TEST DIDPLAY
+        CALL DrawDisplay
 
         ;WAIT FOR KEYPRESS
         MOV AH, 00H
