@@ -318,6 +318,16 @@ TOTAL_BUTTONS EQU 34
         DW OFFSET LBL_EQ   
         DB 8BH  
 
+
+        current_input_low   DW 0       ; LOWER 16 BITS
+        current_input_high  DW 0       ; UPPER 16 BITS
+        input_active        DB 0       ; TYPING -> 1, DISPLAYING -> 0
+        input_negative      DB 0       ; NEGATIVE -> 1, POSITIVE -> 0
+        decimal_entered     DB 0       ; DECIMAL -> 1, OTHERWISE ->0
+        decimal_count       DB 0       ; DIGITS AFTER DECIMAL
+        digit_count         DB 0       ; DIGITS BEFORE DECIMAL
+
+        display_buffer      DB 16 DUP('$')
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -719,13 +729,26 @@ FindBtnLoop:
         JMP ActDone
 
 FoundBtn:
+        CMP selected_button, BTN_00
+        JNE NotDoubleZero
+        
+        MOV AL, '0'
+        CALL AddDigit
+        MOV AL, '0'
+        CALL AddDigit
+        
+        JMP ActDone
 
-        MOV DH, 6
-        MOV DL, 13
-        CALL SetCursor
+NotDoubleZero:
         MOV SI, [SI+4]
-        MOV BL, 8FH         
-        CALL PrintStringAttr
+        MOV AL, [SI+2]
+
+        CMP AL, '0'
+        JB Actdone
+        CMP AL, '9'
+        JA ActDone
+
+        CALL AddDigit
 
 ActDone:
         POP SI
@@ -737,9 +760,18 @@ ActDone:
 ActivateSelectedButton ENDP
 
 HandleNormalChar PROC
+
+        CMP AL, '0'
+        JB CheckEnter
+        CMP AL, '9'
+        JA CheckEnter
+        CALL AddDigit       
+        RET 
+CheckEnter:
         CMP AL, 0DH 
         JNE SkipActivate
         CALL ActivateSelectedButton
+
 SkipActivate:
         RET
 
@@ -819,6 +851,68 @@ HandleExtendedChar ENDP
 ;----------------------------------------------------------------------------
 ;INPUT ROUTINES
 ;----------------------------------------------------------------------------
+AddDigit PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        SUB AL, '0'
+        MOV AH, 0
+        PUSH AX
+
+        CMP input_active, 0
+        JNE DigitActive
+
+        MOV current_input_low, 0
+        MOV current_input_high, 0
+        MOV input_negative, 0
+        MOV decimal_entered, 0
+        MOV decimal_count, 0
+        MOV digit_count, 0
+        MOV input_active, 1
+
+DigitActive:
+        CMP decimal_entered, 0
+        JNE AddFractionalDigit
+
+        MOV AX, current_input_low
+        MOV CX, 10
+        MUL CX
+        MOV SI, AX
+        MOV BX, DX
+
+        MOV AX, current_input_high
+        MUL CX
+        ADD AX, BX
+
+        POP CX
+        PUSH AX
+        MOV AX, CX
+        MOV CX, 100
+        MUL CX
+
+        ADD SI, AX
+        POP AX
+        ADC AX, 0
+
+        MOV current_input_low, SI
+        MOV current_input_high, AX
+        INC digit_count
+        JMP AddDigitDone
+AddFractionalDigit:
+
+
+AddDigitDone:
+        CALL UpdateDisplay
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+AddDigit ENDP
 
 
 ;----------------------------------------------------------------------------
@@ -829,6 +923,121 @@ HandleExtendedChar ENDP
 ;----------------------------------------------------------------------------
 ;FORMATTING ROUTINES
 ;----------------------------------------------------------------------------
+UpdateDisplay PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI
+
+        ; DIVIDE BY 100
+        MOV AX, current_input_high
+        XOR DX, DX
+        MOV CX, 100
+        DIV CX
+        MOV SI, AX                ; SI -> QUOTIENT HIGH 
+
+        MOV AX, current_input_low
+        DIV CX                    ; AX -> QUOTIENT LOW
+        PUSH DX                   ; FRACTIONAL PART 
+
+        ;CONVERT INTO ASCII
+        LEA DI, display_buffer
+        ADD DI, 15                ; START FROM RIGHT SIDE
+        MOV BYTE PTR [DI], '$'
+        DEC DI
+
+        CMP SI, 0
+        JNE ConvertLoop
+        CMP AX, 0
+        JNE ConvertLoop
+        MOV BYTE PTR [DI], '0'
+        DEC DI
+        JMP FormatFraction
+
+ConvertLoop:
+        PUSH AX
+        MOV AX, SI
+        XOR DX, DX
+        MOV CX, 10
+        DIV CX
+        MOV SI, AX                 ; SI -> NEW HIGH QUOTIENT
+        POP AX
+        DIV CX                     ; AX -> NEW QUOTIENT LOW , DX -> UNIT
+
+        ADD DL, '0'
+        MOV [DI], DL
+        DEC DI
+
+        CMP SI, 0
+        JNE ConvertLoop
+        CMP AX, 0
+        JNE ConvertLoop
+
+FormatFraction:
+        INC DI
+        POP DX
+
+        LEA BX, display_buffer
+CopyIntLoop:
+        MOV AL, [DI]
+        MOV [BX], AL
+        INC DI
+        INC BX
+        CMP BYTE PTR [DI], '$'
+        JNE CopyIntLoop
+
+        MOV BYTE PTR [BX], '.'
+        INC BX
+
+        MOV AX, DX
+        MOV CL, 10
+        DIV CL
+        ADD AL, '0'
+        ADD AH, '0'
+        MOV [BX], AL
+        MOV [BX+1], AH
+        MOV BYTE PTR [BX+2], '$'
+
+        ; CLEAR DISPLAY
+        MOV DH, 8
+        MOV DL, 45
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 8FH
+        MOV CX, 21
+        CALL PrintCharAttr
+
+        ; CALCULATE LENGTH TO DISPLAY
+        LEA SI, display_buffer
+        XOR CX, CX
+LenLoop:
+        CMP BYTE PTR [SI], '$'
+        JE LenDone
+        INC CX
+        INC SI
+        JMP LenLoop
+LenDone:
+
+        ; TO RIGHT ALIGN
+        MOV DL, 66
+        SUB DL, CL
+        MOV DH, 8
+        CALL SetCursor
+        
+        LEA SI, display_buffer
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+UpdateDisplay ENDP
 
 
 ;----------------------------------------------------------------------------
@@ -950,5 +1159,3 @@ Exit:
 MAIN ENDP
 
 END MAIN
-
-
