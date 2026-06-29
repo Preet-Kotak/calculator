@@ -9,6 +9,9 @@ FRAME_TOP    EQU 4
 FRAME_BOTTOM EQU 20
 FRAME_WIDTH  EQU 56
 
+TITLE_ROW    EQU 5
+TITLE_COL    EQU 32
+
 ;-----------------------------------------------------------------------------
 ;DATA VARIABLES
 ;----------------------------------------------------------------------------
@@ -18,7 +21,8 @@ FRAME_WIDTH  EQU 56
         ;MSG_MIDDLE DB 'MIDDLE$'
         ;MSG_BOTTOM DB 'NEAR BOTTOM$'
         MSG_TITLE DB '8086 CALCULATOR$'
-        MSG_NUMS DB '7 8 9 / 4 5 6 * $'
+        ;MSG_NUMS DB '7 8 9 / 4 5 6 * $'
+        
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -27,6 +31,39 @@ FRAME_WIDTH  EQU 56
 ;-----------------------------------------------------------------------------
 ;SCREEN ROUTINES
 ;----------------------------------------------------------------------------
+
+ResetDOS PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+
+        ;SET SCREEN TO DEFAULT
+        MOV AH, 06H
+        MOV AL, 00H
+        MOV BH, 07H
+        MOV CX, 0000H
+        MOV DX, 184FH
+        INT 10H
+
+        ;CURSOR TO 0,0
+        MOV AH, 02H
+        MOV BH, 00H
+        MOV DH, 00H
+        MOV DL, 00H
+        INT 10H
+
+        ;RESTORE BLINKING
+        MOV AX, 1003H
+        MOV BL, 01H
+        INT 10H
+
+        POP DX
+        POP CX
+        POP BX
+        POP  AX
+        RET
+ResetDOS ENDP
 
 ClearScreen PROC
         PUSH AX
@@ -204,7 +241,26 @@ DrawBottomBorder:
         RET
 DrawFrame ENDP
 
+DrawTitle PROC
+        PUSH AX
+        PUSH BX
+        PUSH DX
+        PUSH SI
 
+        MOV DH, TITLE_ROW
+        MOV DL, TITLE_COL
+        CALL SetCursor
+
+        LEA SI, MSG_TITLE
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        POP SI
+        POP DX
+        POP BX
+        POP AX
+        RET
+DrawTitle ENDP
 
 
 ;----------------------------------------------------------------------------
@@ -314,14 +370,20 @@ MAIN PROC
         ;TEST BORDER
         CALL DrawFrame
 
+        ;TEST TITLE
+        CALL DrawTitle
+
+
         ;WAIT FOR KEYPRESS
         MOV AH, 00H
         INT 16H
 
+        CALL ResetDos
+
         ;EXIT TO DOS
         MOV AH, 4CH
         MOV AL, 00H
-        INT 21H
+        INT 21H 
 MAIN ENDP
 
 END MAIN
