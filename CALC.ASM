@@ -637,7 +637,14 @@ DrawButtons ENDP
 ;----------------------------------------------------------------------------
 ;KEYBOARD ROUTINES
 ;----------------------------------------------------------------------------
+ReadKeY PROC
+        ;AL <- ASCII CHARACTER
+        ;AH <- KEYBOARD SCAN CODE
 
+        MOV AH, 00H
+        INT 16H
+        RET
+ReadKey ENDP
 
 ;----------------------------------------------------------------------------
 ;INPUT ROUTINES
@@ -738,22 +745,32 @@ MAIN PROC
         ;MOV BL, 8FH
         ;CALL PrintStringAttr
 
-        ;TEST BORDER
+        ;DRAW KEYBOARD
         CALL DrawFrame
-
-        ;TEST TITLE
         CALL DrawTitle
-
-        ;TEST DIDPLAY
         CALL DrawDisplay
-
-        ;TEST BUTTONS
         CALL DrawButtons
+MainLoop:
+        CALL ReadKEY
 
-        ;WAIT FOR KEYPRESS
-        MOV AH, 00H
-        INT 16H
+        ; IF ESC EXIT
+        CMP AL, 1BH
+        JE Exit
 
+        ;TEST PRINT CHARATER
+        PUSH AX
+        MOV DH, DISP_TOP-1
+        MOV DL, DISP_RIGHT-30
+        CALL SetCursor
+        POP AX
+
+        MOV BL, 8FH
+        MOV CX, 1
+        CALL PrintCharAttR
+
+        JMP MainLoop
+
+Exit:
         CALL ResetDos
 
         ;EXIT TO DOS
