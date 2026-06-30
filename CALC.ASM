@@ -727,26 +727,33 @@ FindBtnLoop:
 
 FoundBtn:
         CMP selected_button, BTN_00
-        JNE NotDoubleZero
+        JNE CheckSignBtn
         
         MOV AL, '0'
         CALL AddDigit
         MOV AL, '0'
         CALL AddDigit
-        
         JMP ActDone
 
-NotDoubleZero:
+CheckSignBtn:
+        CMP selected_button, BTN_SIGN
+        JNE NotSignBtn
+        
+        CALL ToggleSign     
+        JMP ActDone
+
+NotSignBtn:
         MOV SI, [SI+4]
         MOV AL, [SI+2]
 
         CMP AL, '.'
         JNE NotDotBtn
         CALL AddDecimalPoint
+        JMP ActDone
 
 NotDotBtn:
         CMP AL, '0'
-        JB Actdone
+        JB ActDone
         CMP AL, '9'
         JA ActDone
 
@@ -766,6 +773,7 @@ HandleNormalChar PROC
         CMP AL, '.'
         JNE NotDotKey
         CALL AddDecimalPoint
+        RET
 
 NotDotKey:
         CMP AL, '0'
@@ -890,7 +898,7 @@ DigitActive:
         LEA SI, MSG_ERR_DIGITS
         CALL ShowTempError  
         JMP AddDigitDone
-        
+
 AllowIntDigit:
         MOV AX, current_input_low
         MOV CX, 10
@@ -995,6 +1003,29 @@ DecDone:
         RET
 AddDecimalPoint ENDP
 
+ToggleSign PROC
+        PUSH AX
+        
+        CMP input_active, 1
+        JE ToggleActiveInput
+
+        ; NUMBER IN MEMORY
+        NOT current_input_high
+        NOT current_input_low
+        ADD current_input_low, 1
+        ADC current_input_high, 0
+        JMP ToggleDone
+
+ToggleActiveInput:
+        ; NUMBER IN INPUT
+        XOR input_negative, 1
+
+ToggleDone:
+        CALL UpdateDisplay  
+        POP AX
+        RET
+ToggleSign ENDP
+
 ShowTempError PROC
         PUSH AX
         PUSH BX
@@ -1050,17 +1081,43 @@ UpdateDisplay PROC
         PUSH SI
         PUSH DI
 
+        MOV AX, current_input_low
+        MOV DX, current_input_high
+
+        XOR CL, CL
+        CMP input_active, 0
+        JE CheckSignedResult
+
+        CMP input_negative, 1
+        JNE DoUnsignedDiv
+        MOV CL, 1
+        JMP DoUnsignedDiv
+
+CheckSignedResult:
+        
+        TEST DX, 8000H
+        JZ DoUnsignedDiv
+        MOV CL, 1
+        
+        NOT AX
+        NOT DX
+        ADD AX, 1
+        ADC DX, 0
+
+DoUnsignedDiv:
+        PUSH CX                  ; SAVE SIGN FLAG
         ; DIVIDE BY 100
-        MOV AX, current_input_high
+        MOV DI, AX               ; SAVE LOW
+        MOV AX, DX
         XOR DX, DX
         MOV CX, 100
         DIV CX
         MOV SI, AX                ; SI -> QUOTIENT HIGH 
 
-        MOV AX, current_input_low
+        MOV AX, DI
         DIV CX                    ; AX -> QUOTIENT LOW
         PUSH DX                   ; FRACTIONAL PART 
-
+        
         ;CONVERT INTO ASCII
         LEA DI, display_buffer
         ADD DI, 15                ; START FROM RIGHT SIDE
@@ -1096,9 +1153,16 @@ ConvertLoop:
 
 FormatFraction:
         INC DI
-        POP DX
+        POP DX                    ; RESTORE REMAINDER 
+        POP CX                    ; RESTORE SIGN FLAG 
 
         LEA BX, display_buffer
+
+        CMP CL, 1
+        JNE CopyIntLoop
+        MOV BYTE PTR [BX], '-'
+        INC BX
+
 CopyIntLoop:
         MOV AL, [DI]
         MOV [BX], AL
