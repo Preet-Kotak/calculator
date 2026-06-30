@@ -436,7 +436,6 @@ PrintStringAttr PROC
         PUSH CX
         PUSH DX
         PUSH SI
-
 PrintStringLoop:
         MOV AL, [SI]
         CMP AL, '$'
@@ -666,7 +665,6 @@ DrawButton PROC
         CMP AX, selected_button
         JNE NotSelected
         MOV BL, 30H
-
 NotSelected:
         ;READ LABEL
         MOV SI, [SI+4]
@@ -685,7 +683,6 @@ DrawButtons PROC
 
         LEA SI, BTN_TABLE
         MOV CX, TOTAL_BUTTONS
-
 DrawButtonsLoop:
         CALL DrawButton
         ADD SI, 7
@@ -724,7 +721,6 @@ FindBtnLoop:
         ADD SI, 7             
         LOOP FindBtnLoop
         JMP ActDone
-
 FoundBtn:
         CMP selected_button, BTN_00
         JNE CheckSignBtn
@@ -734,15 +730,18 @@ FoundBtn:
         MOV AL, '0'
         CALL AddDigit
         JMP ActDone
-
 CheckSignBtn:
         CMP selected_button, BTN_SIGN
         JNE NotSignBtn
         
         CALL ToggleSign     
         JMP ActDone
-
 NotSignBtn:
+        CMP selected_button, BTN_DEL
+        JNE NotDelBtn
+        CALL DeleteDigit
+        JMP ActDone
+NotDelBtn:
         MOV SI, [SI+4]
         MOV AL, [SI+2]
 
@@ -750,7 +749,6 @@ NotSignBtn:
         JNE NotDotBtn
         CALL AddDecimalPoint
         JMP ActDone
-
 NotDotBtn:
         CMP AL, '0'
         JB ActDone
@@ -758,7 +756,6 @@ NotDotBtn:
         JA ActDone
 
         CALL AddDigit
-
 ActDone:
         POP SI
         POP DX
@@ -770,11 +767,15 @@ ActivateSelectedButton ENDP
 
 HandleNormalChar PROC
 
+        CMP AL, 08H         ; BACK SPACE
+        JNE NotBackspace
+        CALL DeleteDigit
+        RET
+NotBackspace:
         CMP AL, '.'
         JNE NotDotKey
         CALL AddDecimalPoint
         RET
-
 NotDotKey:
         CMP AL, '0'
         JB CheckEnter
@@ -786,10 +787,8 @@ CheckEnter:
         CMP AL, 0DH 
         JNE SkipActivate
         CALL ActivateSelectedButton
-
 SkipActivate:
         RET
-
 HandleNormalChar ENDP
 
 HandleExtendedChar PROC
@@ -808,7 +807,6 @@ HandleExtendedChar PROC
         JE NavRight
         
         JMP NavDone
-
 NavDown:
         MOV AX, selected_button
         CMP AH, 4
@@ -822,21 +820,18 @@ NavDown:
         JNE UpdateSelection
         MOV AL, 5
         JMP UpdateSelection
-
 NavUp:
         MOV AX, selected_button
         CMP AH, 0
         JE NavDone
         DEC AH
         JMP UpdateSelection
-
 NavLeft:
         MOV AX, selected_button
         CMP AL, 0
         JE NavDone
         DEC AL
         JMP UpdateSelection
-
 NavRight:
         MOV AX, selected_button
         CMP AH, 4
@@ -845,16 +840,13 @@ NavRight:
         JE NavDone
         INC AL
         JMP UpdateSelection
-
 Row4:
         CMP AL, 5
         JE NavDone
         INC AL
-
 UpdateSelection:
         MOV selected_button, AX
         CALL DrawButtons
-
 NavDone:
         POP SI
         POP DX
@@ -887,7 +879,6 @@ AddDigit PROC
         MOV decimal_count, 0
         MOV digit_count, 0
         MOV input_active, 1
-
 DigitActive:
         CMP decimal_entered, 0
         JNE AddFractionalDigit
@@ -898,7 +889,6 @@ DigitActive:
         LEA SI, MSG_ERR_DIGITS
         CALL ShowTempError  
         JMP AddDigitDone
-
 AllowIntDigit:
         MOV AX, current_input_low
         MOV CX, 10
@@ -924,7 +914,6 @@ AllowIntDigit:
         MOV current_input_high, AX
         INC digit_count
         JMP AddDigitDone
-
 AddFractionalDigit:
 
         CMP decimal_count, 2
@@ -934,7 +923,6 @@ AddFractionalDigit:
         LEA SI, MSG_ERR_PLACES
         CALL ShowTempError
         JMP AddDigitDone
-
 ProcessFractional:
         POP CX              
         CMP decimal_count, 0
@@ -949,15 +937,12 @@ ProcessFractional:
         ADC current_input_high, 0
         MOV decimal_count, 1
         JMP AddDigitDone
-
 SecondDecimalPlace:
         ; SECOND DECIMAL AS IT IS
         ADD current_input_low, CX
         ADC current_input_high, 0
         MOV decimal_count, 2
         JMP AddDigitDone
-
-
 AddDigitDone:
         CALL UpdateDisplay
         POP SI
@@ -985,7 +970,6 @@ AddDecimalPoint PROC
         MOV input_active, 1
         CALL UpdateDisplay
         JMP DecDone
-
 DecimalActive:
         CMP decimal_entered, 1
         JNE SetDecimal
@@ -993,10 +977,8 @@ DecimalActive:
         LEA SI, MSG_ERR_DECIMAL
         CALL ShowTempError
         JMP DecDone
-
 SetDecimal:
         MOV decimal_entered, 1
-
 DecDone:
         POP SI
         POP AX
@@ -1015,16 +997,112 @@ ToggleSign PROC
         ADD current_input_low, 1
         ADC current_input_high, 0
         JMP ToggleDone
-
 ToggleActiveInput:
+        MOV AX, current_input_low
+        OR AX, current_input_high
+        JZ ToggleDone
+        
         ; NUMBER IN INPUT
         XOR input_negative, 1
-
 ToggleDone:
         CALL UpdateDisplay  
         POP AX
         RET
 ToggleSign ENDP
+
+DeleteDigit PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI
+
+        CMP input_active, 1
+        JE StartDel
+        JMP DelDone
+StartDel:
+        CMP decimal_entered, 1
+        JNE DeleteIntegerDigit
+
+        CMP decimal_count, 2
+        JE DelHundredths
+        CMP decimal_count, 1
+        JE DelTenths
+
+        MOV decimal_entered, 0
+        JMP DelDone
+DelHundredths:
+
+        MOV AX, current_input_high
+        XOR DX, DX
+        MOV CX, 10
+        DIV CX
+        MOV SI, AX                  
+
+        MOV AX, current_input_low
+        DIV CX                      
+        
+        SUB current_input_low, DX
+        SBB current_input_high, 0
+        MOV decimal_count, 1
+        JMP DelDone
+DelTenths:
+
+        MOV AX, current_input_high
+        XOR DX, DX
+        MOV CX, 100
+        DIV CX
+        MOV SI, AX                  
+
+        MOV AX, current_input_low
+        DIV CX                      ; AX = low quotient, DX = remainder (0-99)
+        
+        SUB current_input_low, DX
+        SBB current_input_high, 0
+        MOV decimal_entered, 0
+        MOV decimal_count, 0
+        JMP DelDone
+DeleteIntegerDigit:
+        CMP digit_count, 0
+        JE DelDone
+
+        MOV AX, current_input_high
+        XOR DX, DX
+        MOV CX, 1000
+        DIV CX
+        MOV SI, AX                
+
+        MOV AX, current_input_low
+        DIV CX                      
+
+        MOV CX, 100
+        MUL CX                     
+        MOV BX, AX                  
+        MOV DI, DX                  
+
+        MOV AX, SI
+        MUL CX                      
+        ADD AX, DI                  
+
+        MOV current_input_low, BX
+        MOV current_input_high, AX
+        DEC digit_count
+
+        MOV AX, current_input_low
+        OR AX, current_input_high
+        JNZ DelDone
+        MOV input_negative, 0   
+DelDone:
+        CALL UpdateDisplay
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DeleteDigit ENDP
 
 ShowTempError PROC
         PUSH AX
@@ -1092,7 +1170,6 @@ UpdateDisplay PROC
         JNE DoUnsignedDiv
         MOV CL, 1
         JMP DoUnsignedDiv
-
 CheckSignedResult:
         
         TEST DX, 8000H
@@ -1103,7 +1180,6 @@ CheckSignedResult:
         NOT DX
         ADD AX, 1
         ADC DX, 0
-
 DoUnsignedDiv:
         PUSH CX                  ; SAVE SIGN FLAG
         ; DIVIDE BY 100
@@ -1131,7 +1207,6 @@ DoUnsignedDiv:
         MOV BYTE PTR [DI], '0'
         DEC DI
         JMP FormatFraction
-
 ConvertLoop:
         PUSH AX
         MOV AX, SI
@@ -1150,7 +1225,6 @@ ConvertLoop:
         JNE ConvertLoop
         CMP AX, 0
         JNE ConvertLoop
-
 FormatFraction:
         INC DI
         POP DX                    ; RESTORE REMAINDER 
@@ -1162,7 +1236,6 @@ FormatFraction:
         JNE CopyIntLoop
         MOV BYTE PTR [BX], '-'
         INC BX
-
 CopyIntLoop:
         MOV AL, [DI]
         MOV [BX], AL
@@ -1262,11 +1335,9 @@ MainLoop:
 
         CALL HandleNormalChar
         JMP MainLoop
-
 IsExtended:
         CALL HandleExtendedChar
         JMP MainLoop
-
 Exit:
         CALL ResetDos
 
