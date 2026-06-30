@@ -325,6 +325,8 @@ TOTAL_BUTTONS EQU 34
         digit_count         DB 0       ; DIGITS BEFORE DECIMAL
 
         display_buffer      DB 16 DUP('$')
+
+        error_flag          DB 0       ; OVERFLOW/DIV-BY-ZERO ERROR FLAG -> 1
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -412,7 +414,7 @@ SetCursor ENDP
 
 PrintCharAttr PROC
         ;AL <- ASCII CHARACTER
-        ;BL <- COLOUR ATTRIBUTE
+        ;BL <- COLOR ATTRIBUTE
         ;CX <- REPEAT COUNT
         PUSH AX
         PUSH BX
@@ -430,7 +432,7 @@ PrintCharAttr ENDP
 
 PrintStringAttr PROC
         ;SI <- POINTER TO STRING
-        ;BL <- COLOUR ATTRIBUTE
+        ;BL <- COLOR ATTRIBUTE
         PUSH AX
         PUSH BX
         PUSH CX
@@ -446,7 +448,7 @@ PrintStringLoop:
         MOV CX, 1
         CALL PrintCharAttr
 
-        ;GET CURSUR POSITION
+        ;GET CURSOR POSITION
         MOV AH, 03H
         MOV BH, 00H
         INT 10H
@@ -657,10 +659,10 @@ DrawButton PROC
         MOV DL, [SI+3]
         CALL SetCursor
 
-        ;READ COLOUR FROM TABLE
+        ;READ COLOR FROM TABLE
         MOV BL, [SI+6]
 
-        ;IF SELETCED 
+        ;IF SELECTED 
         MOV AX, [SI]
         CMP AX, selected_button
         JNE NotSelected
@@ -823,7 +825,7 @@ NavDown:
         JE NavDone
         INC AH
 
-        ;HANLDE '='
+        ;HANDLE '='
         CMP AH, 4
         JNE UpdateSelection
         CMP AL, 6
@@ -900,28 +902,16 @@ DigitActive:
         CALL ShowTempError  
         JMP AddDigitDone
 AllowIntDigit:
-        MOV AX, current_input_low
-        MOV CX, 10
-        MUL CX
-        MOV SI, AX
-        MOV BX, DX
-
-        MOV AX, current_input_high
-        MUL CX
-        ADD AX, BX
-
-        POP CX
-        PUSH AX
+        LEA SI, current_input_low
+        CALL Mul32By10
+        
+        POP CX                 ; CX = numeric digit value (0..9)
         MOV AX, CX
         MOV CX, 100
-        MUL CX
-
-        ADD SI, AX
-        POP AX
-        ADC AX, 0
-
-        MOV current_input_low, SI
-        MOV current_input_high, AX
+        MUL CX                 ; DX:AX = digit * 100
+        
+        ADD current_input_low, AX
+        ADC current_input_high, DX
         INC digit_count
         JMP AddDigitDone
 AddFractionalDigit:
@@ -1002,10 +992,8 @@ ToggleSign PROC
         JE ToggleActiveInput
 
         ; NUMBER IN MEMORY
-        NOT current_input_high
-        NOT current_input_low
-        ADD current_input_low, 1
-        ADC current_input_high, 0
+        LEA SI, current_input_low
+        CALL Neg32
         JMP ToggleDone
 ToggleActiveInput:
         MOV AX, current_input_low
@@ -1043,33 +1031,15 @@ StartDel:
         MOV decimal_entered, 0
         JMP DelDone
 DelHundredths:
-
-        MOV AX, current_input_high
-        XOR DX, DX
-        MOV CX, 10
-        DIV CX
-        MOV SI, AX                  
-
-        MOV AX, current_input_low
-        DIV CX                      
-        
-        SUB current_input_low, DX
-        SBB current_input_high, 0
+        LEA SI, current_input_low
+        CALL Div32By10
+        CALL Mul32By10
         MOV decimal_count, 1
         JMP DelDone
 DelTenths:
-
-        MOV AX, current_input_high
-        XOR DX, DX
-        MOV CX, 100
-        DIV CX
-        MOV SI, AX                  
-
-        MOV AX, current_input_low
-        DIV CX                      ; AX = low quotient, DX = remainder (0-99)
-        
-        SUB current_input_low, DX
-        SBB current_input_high, 0
+        LEA SI, current_input_low
+        CALL Div32By100
+        CALL Mul32By100
         MOV decimal_entered, 0
         MOV decimal_count, 0
         JMP DelDone
@@ -1077,26 +1047,9 @@ DeleteIntegerDigit:
         CMP digit_count, 0
         JE DelDone
 
-        MOV AX, current_input_high
-        XOR DX, DX
-        MOV CX, 1000
-        DIV CX
-        MOV SI, AX                
-
-        MOV AX, current_input_low
-        DIV CX                      
-
-        MOV CX, 100
-        MUL CX                     
-        MOV BX, AX                  
-        MOV DI, DX                  
-
-        MOV AX, SI
-        MUL CX                      
-        ADD AX, DI                  
-
-        MOV current_input_low, BX
-        MOV current_input_high, AX
+        LEA SI, current_input_low
+        CALL Div32By1000
+        CALL Mul32By100
         DEC digit_count
 
         MOV AX, current_input_low
@@ -1129,7 +1082,7 @@ ClearEntry PROC
 ClearEntry ENDP
 
 ClearAll PROC
-        ; CURRENTLY SAME AS CE WILL CLEAR CALCULATION REGRISTERS OMCE ADDED
+        ; CURRENTLY SAME AS CE WILL CLEAR CALCULATION REGISTERS ONCE ADDED
         CALL ClearEntry     
         RET
 ClearAll ENDP
@@ -1177,6 +1130,251 @@ ShowTempError ENDP
 ;MATH ROUTINES
 ;----------------------------------------------------------------------------
 
+Clear32 PROC
+        ;CLEAR 32 BIT AT DS:SI
+        PUSH AX
+        MOV AX, 0
+        MOV [SI], AX
+        MOV [SI+2], AX
+        POP AX
+        RET
+Clear32 ENDP
+
+Copy32 PROC
+        ;32 BITS DS:SI -> DS:DI
+        PUSH AX
+        MOV AX, [SI]
+        MOV [DI], AX
+        MOV AX, [SI+2]
+        MOV [DI+2], AX
+        POP AX
+        RET
+Copy32 ENDP
+
+Cmp32 PROC
+        ; COMPARE 32 BIT VARIABLE AT [SI] TO VARIABLE AT [DI]
+        ; SET FLAGS SO CONDITIONAL JUMP WORKS
+        MOV AX, [SI+2]
+        CMP AX, [DI+2]
+        JNE Cmp32_Done
+        
+        MOV AX, [SI]
+        CMP AX, [DI]
+        JE Cmp32_Done         ; EQUAL
+        JA Cmp32_Greater
+        
+        ; LESS
+        MOV AL, 80H
+        OR AL, AL
+        RET
+Cmp32_Greater:
+        ; HIGH
+        MOV AL, 01H
+        OR AL, AL
+Cmp32_Done:
+        RET
+Cmp32 ENDP
+
+Add32 PROC
+        ; [SI] = [SI] + [DI]
+        ; error_flag -> 1 WHEN OVERFLOW
+        PUSH AX
+        PUSH DX
+        
+        MOV AX, [SI]
+        ADD AX, [DI]
+        MOV DX, [SI+2]
+        ADC DX, [DI+2]
+        
+        JO Add32_Overflow
+        
+        MOV [SI], AX
+        MOV [SI+2], DX
+        JMP Add32_Done       
+Add32_Overflow:
+        MOV error_flag, 1
+Add32_Done:
+        POP DX
+        POP AX
+        RET
+Add32 ENDP
+
+Sub32 PROC
+        ; [SI] = [SI] - [DI]
+        ; error_flag = 1 WHEN OVERFLOW
+        PUSH AX
+        PUSH DX
+        
+        MOV AX, [SI]
+        SUB AX, [DI]
+        MOV DX, [SI+2]
+        SBB DX, [DI+2]
+        
+        JO Sub32_Overflow
+        
+        MOV [SI], AX
+        MOV [SI+2], DX
+        JMP Sub32_Done        
+Sub32_Overflow:
+        MOV error_flag, 1
+Sub32_Done:
+        POP DX
+        POP AX
+        RET
+Sub32 ENDP
+
+Neg32 PROC
+        PUSH AX
+        
+        NOT WORD PTR [SI]
+        NOT WORD PTR [SI+2]
+        
+        ADD WORD PTR [SI], 1
+        ADC WORD PTR [SI+2], 0
+        
+        JO Neg32_Overflow
+        JMP Neg32_Done  
+Neg32_Overflow:
+        MOV error_flag, 1
+Neg32_Done:
+        POP AX
+        RET
+Neg32 ENDP
+
+Abs32 PROC 
+        TEST WORD PTR [SI+2], 8000H  
+        JZ Abs32_Done
+        CALL Neg32
+Abs32_Done:
+        RET
+Abs32 ENDP
+
+Mul32ByCX PROC
+        ; [SI] = [SI] * CX 
+        ; [SI] BOTH + AND -
+        PUSH AX
+        PUSH DX
+        PUSH BX
+        
+        MOV BX, CX            
+        
+        MOV CL, 0             
+        TEST WORD PTR [SI+2], 8000H
+        JZ MulCX_Unsigned
+        MOV CL, 1
+        CALL Neg32
+MulCX_Unsigned:
+        PUSH CX               
+        
+        MOV AX, [SI]
+        MUL BX                
+        MOV [SI], AX         
+        PUSH DX              
+        
+        MOV AX, [SI+2]
+        MUL BX               
+
+        POP BX                
+        ADD AX, BX
+        ADC DX, 0
+        
+        CMP DX, 0
+        JNE MulCX_Overflow
+        TEST AX, 8000H
+        JNZ MulCX_Overflow
+        
+        MOV [SI+2], AX
+        
+        ; Restore sign
+        POP CX                
+        CMP CL, 1
+        JNE MulCX_Done
+        CALL Neg32
+        JMP MulCX_Done       
+MulCX_Overflow:
+        POP CX                
+        MOV error_flag, 1
+MulCX_Done:
+        POP BX
+        POP DX
+        POP AX
+        RET
+Mul32ByCX ENDP
+
+Div32ByCX PROC
+        ; [SI] = [SI] / CX
+        ; [SI] BOTH + AND -
+        PUSH AX
+        PUSH DX
+        PUSH BX
+        PUSH CX              
+        
+        MOV CL, 0             
+        TEST WORD PTR [SI+2], 8000H
+        JZ DivCX_Unsigned
+        MOV CL, 1
+        CALL Neg32
+DivCX_Unsigned:
+        POP BX               
+        PUSH CX              
+        
+        MOV AX, [SI+2]
+        XOR DX, DX
+        DIV BX                
+        PUSH AX               
+        
+        MOV AX, [SI]          
+        DIV BX                
+        MOV [SI], AX          
+        POP AX                
+        MOV [SI+2], AX        
+
+        POP CX              
+        CMP CL, 1
+        JNE DivCX_Done
+        CALL Neg32
+DivCX_Done:
+        POP BX
+        POP DX
+        POP AX
+        RET
+Div32ByCX ENDP
+
+Mul32By2 PROC
+        MOV CX, 2
+        CALL Mul32ByCX
+        RET
+Mul32By2 ENDP
+Mul32By10 PROC
+        MOV CX, 10
+        CALL Mul32ByCX
+        RET
+Mul32By10 ENDP
+Mul32By16 PROC
+        MOV CX, 16
+        CALL Mul32ByCX
+        RET
+Mul32By16 ENDP
+Mul32By100 PROC
+        MOV CX, 100
+        CALL Mul32ByCX
+        RET
+Mul32By100 ENDP
+Div32By10 PROC
+        MOV CX, 10
+        CALL Div32ByCX
+        RET
+Div32By10 ENDP
+Div32By100 PROC
+        MOV CX, 100
+        CALL Div32ByCX
+        RET
+Div32By100 ENDP
+Div32By1000 PROC
+        MOV CX, 1000
+        CALL Div32ByCX
+        RET
+Div32By1000 ENDP
 
 ;----------------------------------------------------------------------------
 ;FORMATTING ROUTINES
@@ -1342,7 +1540,7 @@ MAIN PROC
         MOV BL, 00H
         INT 10H
 
-        ;CLEAR SCREEN TO DARKGRAY
+        ;CLEAR SCREEN TO DARK GRAY
         CALL ClearScreen
 
         ;DRAW KEYBOARD
