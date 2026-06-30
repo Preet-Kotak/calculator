@@ -723,12 +723,22 @@ FindBtnLoop:
         JMP ActDone
 FoundBtn:
         CMP selected_button, BTN_00
-        JNE CheckSignBtn
+        JNE CheckCLRBtn
         
         MOV AL, '0'
         CALL AddDigit
         MOV AL, '0'
         CALL AddDigit
+        JMP ActDone
+CheckCLRBtn:
+        CMP selected_button, BTN_CLR
+        JNE CheckCEBtn
+        CALL ClearAll
+        JMP ActDone
+CheckCEBtn:                         
+        CMP selected_button, BTN_CE
+        JNE CheckSignBtn              
+        CALL ClearEntry
         JMP ActDone
 CheckSignBtn:
         CMP selected_button, BTN_SIGN
@@ -775,7 +785,7 @@ NotBackspace:
         CMP AL, '.'
         JNE NotDotKey
         CALL AddDecimalPoint
-        RET
+        RET      
 NotDotKey:
         CMP AL, '0'
         JB CheckEnter
@@ -1001,7 +1011,7 @@ ToggleActiveInput:
         MOV AX, current_input_low
         OR AX, current_input_high
         JZ ToggleDone
-        
+
         ; NUMBER IN INPUT
         XOR input_negative, 1
 ToggleDone:
@@ -1103,6 +1113,26 @@ DelDone:
         POP AX
         RET
 DeleteDigit ENDP
+
+ClearEntry PROC
+
+        MOV current_input_low, 0
+        MOV current_input_high, 0
+        MOV input_active, 0
+        MOV input_negative, 0
+        MOV decimal_entered, 0
+        MOV decimal_count, 0
+        MOV digit_count, 0
+        
+        CALL UpdateDisplay  
+        RET
+ClearEntry ENDP
+
+ClearAll PROC
+        ; CURRENTLY SAME AS CE WILL CLEAR CALCULATION REGRISTERS OMCE ADDED
+        CALL ClearEntry     
+        RET
+ClearAll ENDP
 
 ShowTempError PROC
         PUSH AX
