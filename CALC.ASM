@@ -69,13 +69,10 @@ TOTAL_BUTTONS EQU 34
 ;DATA VARIABLES
 ;----------------------------------------------------------------------------
 .DATA
-        ;MSG             DB 'Calculator starting. . . ',13,10,'$'
-
-        ;MSG_TOP         DB 'TOP LEFT$'
-        ;MSG_MIDDLE      DB 'MIDDLE$'
-        ;MSG_BOTTOM      DB 'NEAR BOTTOM$'
-
-        ;MSG_NUMS        DB '7 8 9 / 4 5 6 * $'
+        
+        MSG_ERR_DIGITS   DB 'MAX 8 DIGITS ALLOWED$'
+        MSG_ERR_DECIMAL  DB 'ONLY ONE . ALLOWED$'
+        MSG_ERR_PLACES   DB 'MAX 2 DEC PLACES$'
 
         MSG_TITLE        DB '8086 CALCULATOR$'
         MSG_INITIAL_VAL  DB '0.00$'
@@ -743,6 +740,11 @@ NotDoubleZero:
         MOV SI, [SI+4]
         MOV AL, [SI+2]
 
+        CMP AL, '.'
+        JNE NotDotBtn
+        CALL AddDecimalPoint
+
+NotDotBtn:
         CMP AL, '0'
         JB Actdone
         CMP AL, '9'
@@ -761,6 +763,11 @@ ActivateSelectedButton ENDP
 
 HandleNormalChar PROC
 
+        CMP AL, '.'
+        JNE NotDotKey
+        CALL AddDecimalPoint
+
+NotDotKey:
         CMP AL, '0'
         JB CheckEnter
         CMP AL, '9'
@@ -877,6 +884,14 @@ DigitActive:
         CMP decimal_entered, 0
         JNE AddFractionalDigit
 
+        CMP digit_count, 8
+        JB AllowIntDigit
+        POP CX             
+        LEA SI, MSG_ERR_DIGITS
+        CALL ShowTempError  
+        JMP AddDigitDone
+        
+AllowIntDigit:
         MOV AX, current_input_low
         MOV CX, 10
         MUL CX
@@ -901,7 +916,38 @@ DigitActive:
         MOV current_input_high, AX
         INC digit_count
         JMP AddDigitDone
+
 AddFractionalDigit:
+
+        CMP decimal_count, 2
+        JB ProcessFractional
+        
+        POP CX              
+        LEA SI, MSG_ERR_PLACES
+        CALL ShowTempError
+        JMP AddDigitDone
+
+ProcessFractional:
+        POP CX              
+        CMP decimal_count, 0
+        JNE SecondDecimalPlace
+
+        ; FIRST DECIMAL IS MULTIPLY BY 10
+        MOV AX, CX
+        MOV CX, 10
+        MUL CX              
+        
+        ADD current_input_low, AX
+        ADC current_input_high, 0
+        MOV decimal_count, 1
+        JMP AddDigitDone
+
+SecondDecimalPlace:
+        ; SECOND DECIMAL AS IT IS
+        ADD current_input_low, CX
+        ADC current_input_high, 0
+        MOV decimal_count, 2
+        JMP AddDigitDone
 
 
 AddDigitDone:
@@ -914,6 +960,79 @@ AddDigitDone:
         RET
 AddDigit ENDP
 
+
+AddDecimalPoint PROC
+        PUSH AX
+        PUSH SI
+
+        CMP input_active, 0
+        JNE DecimalActive
+
+        MOV current_input_low, 0
+        MOV current_input_high, 0
+        MOV input_negative, 0
+        MOV decimal_entered, 1
+        MOV decimal_count, 0
+        MOV digit_count, 0
+        MOV input_active, 1
+        CALL UpdateDisplay
+        JMP DecDone
+
+DecimalActive:
+        CMP decimal_entered, 1
+        JNE SetDecimal
+        
+        LEA SI, MSG_ERR_DECIMAL
+        CALL ShowTempError
+        JMP DecDone
+
+SetDecimal:
+        MOV decimal_entered, 1
+
+DecDone:
+        POP SI
+        POP AX
+        RET
+AddDecimalPoint ENDP
+
+ShowTempError PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        
+        ;CLEAR DISPLAY
+        MOV DH, 8
+        MOV DL, 45
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 8FH
+        MOV CX, 21
+        CALL PrintCharAttr
+        
+        ;PRINT ERROR
+        MOV DH, 8
+        MOV DL, 45
+        CALL SetCursor
+        MOV BL, 8CH         
+        CALL PrintStringAttr
+        
+        ; 1 SECOND DELAY
+        MOV CX, 000FH       
+        MOV DX, 4240H       
+        MOV AH, 86H
+        INT 15H
+
+        ; RESTORE DISPLAY
+        CALL UpdateDisplay
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+ShowTempError ENDP
 
 ;----------------------------------------------------------------------------
 ;MATH ROUTINES
@@ -1058,71 +1177,6 @@ MAIN PROC
 
         ;CLEAR SCREEN TO DARKGRAY
         CALL ClearScreen
-
-        ;PRINT MESSAGE
-        ;MOV AH, 09H
-        ;LEA DX, MSG
-        ;INT 21H
-
-        ;TEST : TOP
-        ;MOV DH, 0
-        ;MOV DL, 0
-        ;CALL SetCursor
-        ;MOV AH, 09H
-        ;LEA DX, MSG_TOP
-        ;INT 21H
-
-        ;TEST : MIDDLE
-        ;MOV DH, 12
-        ;MOV DL, 30
-        ;CALL SetCursor
-        ;MOV AH, 09H
-        ;LEA DX, MSG_MIDDLE
-        ;INT 21H
-
-        ;TEST : BOTTOM
-        ;MOV DH, 23
-        ;MOV DL, 65
-        ;CALL SetCursor
-        ;MOV AH, 09H
-        ;LEA DX, MSG_BOTTOM
-        ;INT 21H
-
-        ;TEST : SINGLE RED 'X' GARKGRAY BACKGOUND
-        ;MOV DH, 5
-        ;MOV DL, 10
-        ;CALL SetCursor
-        
-        ;MOV AL, 'X'
-        ;MOV BL, 84H
-        ;MOV CX, 1
-        ;CALL PrintCharAttr
-
-        ;TEST : REPEAT CYAN '@' 20 TIMES BLACK BACKGROUND
-        ;MOV DH, 7
-        ;MOV DL, 10
-        ;CALL SetCursor
-
-        ;MOV AL, '@'
-        ;MOV BL, 0BH
-        ;MOV CX, 20
-        ;CALL PrintCharAttr
-
-        ;TEST : CYAN TITLE DARKGRAY BACKGROUND
-        ;MOV DH, 2
-        ;MOV DL, 15
-        ;CALL SetCursor
-        ;LEA SI, MSG_TITLE
-        ;MOV BL, 8BH
-        ;CALL PrintStringAttr
-
-        ;TEST : DUMMY BUTTON WHITE ON DARKGRAY
-        ;MOV DH, 5
-        ;MOV DL, 15
-        ;CALL SetCursor
-        ;LEA SI, MSG_NUMS
-        ;MOV BL, 8FH
-        ;CALL PrintStringAttr
 
         ;DRAW KEYBOARD
         CALL DrawFrame
