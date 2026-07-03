@@ -333,6 +333,12 @@ TOTAL_BUTTONS EQU 34
         last_operator       DW 0       ; BUTTON ID OF LAST OPERATION
         last_operand_low    DW 0       ; LOWER 16 BIT OF LAST OPERAND
         last_operand_high   DW 0       ; UPPER 16 BIT OF LAST OPERAND
+
+        temp_x_low          DW 0       ; FOR MULTIPLY         
+        temp_x_high         DW 0       ; FOR MULTIPLY
+        temp_y_low          DW 0       ; FOR MULTIPLY
+        temp_y_high         DW 0       ; FOR MULTIPLY
+
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -768,6 +774,8 @@ NotDelBtn:
         JE OpBtn
         CMP selected_button, BTN_EQ
         JE EqBtn
+        CMP selected_button, BTN_MUL
+        JE OpBtn
         JMP ProceedToLabelCheck
 OpBtn:
         MOV AX, selected_button
@@ -819,6 +827,12 @@ NotPlusKey:
         CALL ProcessOperator
         RET
 NotMinusKey:
+        CMP AL, '*'
+        JNE NotMulKey
+        MOV AX, BTN_MUL
+        CALL ProcessOperator
+        RET
+NotMulKey:
         CMP AL, '='
         JNE NotEqualKey
         CALL ProcessEquals
@@ -1390,6 +1404,134 @@ DivCX_Done:
         RET
 Div32ByCX ENDP
 
+Mul32x32 PROC
+        PUSH BP 
+
+        MOV BP, SP
+        SUB SP, 8               ; 4 16BIT VARIABLE FOR MULTIPLY
+
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI 
+
+        MOV AX, [SI+2]
+        XOR AX, [DI+2]
+        PUSH AX                 ; STORE FOR SIGN AT BIT 15
+
+        MOV AX, [SI]
+        MOV temp_x_low, AX
+        MOV AX, [SI+2]
+        MOV temp_x_high, AX
+        MOV AX, [DI]
+        MOV temp_y_low, AX
+        MOV AX, [DI+2]
+        MOV temp_y_high, AX
+
+        ; MAKE POSITIVE
+        LEA SI, temp_x_low
+        CALL Abs32
+        LEA SI, temp_y_low
+        CALL Abs32
+
+        XOR AX, AX
+        MOV [BP-2], AX
+        MOV [BP-4], AX
+        MOV [BP-6], AX
+        MOV [BP-8], AX
+
+        ; MULTIPLY
+        ; P1 XL * YL
+        MOV AX, temp_x_low
+        MUL temp_y_low
+        MOV [BP-2], AX
+        MOV [BP-4], DX
+
+        ; P2 XH * YL
+        MOV AX, temp_x_high
+        MUL temp_y_low
+        ADD [BP-4], AX
+        ADC DX, 0
+        MOV [BP-6], DX
+        ADC BYTE PTR [BP-8], 0
+
+        ; P2 XL * YH
+        MOV AX, temp_x_low
+        MUL temp_y_high
+        ADD [BP-4], AX
+        ADC DX, 0
+        MOV [BP-6], DX
+        ADC BYTE PTR [BP-8], 0
+
+        ; P3 XH * XH
+        MOV AX, temp_x_high
+        MUL temp_y_high
+        ADD [BP-6], AX
+        ADC [BP-8], DX
+
+
+        ; DIVIDE BY 100 FOR DECIMAL PART
+        MOV CX, 100
+
+        XOR DX, DX
+        MOV AX, [BP-8]
+        DIV CX
+        MOV [BP-8], AX
+
+        MOV AX, [BP-6]
+        DIV CX
+        MOV [BP-6], AX
+
+        MOV AX, [BP-4]
+        DIV CX
+        MOV [BP-4], AX
+
+        MOV AX, [BP-2]
+        DIV CX
+        MOV [BP-2], AX
+
+        ;OVERFLOW CHECK
+        CMP WORD PTR [BP-8], 0
+        JNE Mul_Overflow
+        CMP WORD PTR [BP-6], 0
+        JNE Mul_Overflow
+        TEST WORD PTR [BP-4], 8000H
+        JNZ Mul_Overflow
+        JMP Mul_NoOverflow
+Mul_Overflow:
+        MOV error_flag, 1
+        POP AX
+        JMP MulDone
+Mul_NoOverflow:
+        POP AX                
+        TEST AX, 8000H
+        JZ Mul_StoreResult
+
+        NOT WORD PTR [BP-2]
+        NOT WORD PTR [BP-4]
+        ADD WORD PTR [BP-2], 1
+        ADC WORD PTR [BP-4], 0
+Mul_StoreResult:
+        LEA SI, accumulator_low
+        MOV AX, [BP-2]
+        MOV [SI], AX
+        MOV AX, [BP-4]
+        MOV [SI+2], AX
+MulDone:
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        MOV SP, BP
+        POP BP
+        RET
+Mul32x32 ENDP
+
+
 Mul32By2 PROC
         MOV CX, 2
         CALL Mul32ByCX
@@ -1438,7 +1580,7 @@ UpdateDisplay PROC
         PUSH DI
 
         CALL DrawOperatorIndicator
-        
+
         MOV AX, current_input_low
         MOV DX, current_input_high
 
@@ -1599,6 +1741,8 @@ DrawOperatorIndicator PROC
         JE PrintAddInd
         CMP pending_operator, BTN_SUB
         JE PrintSubInd
+        CMP pending_operator, BTN_MUL
+        JE PrintMulInd
         JMP OpIndDone
 ClearOpInd:
         MOV AL, ' '
@@ -1622,6 +1766,16 @@ PrintSubInd:
         INC DL
         CALL SetCursor
         MOV AL, ' '
+        MOV CX, 2
+        CALL PrintCharAttr
+        JMP OpIndDone
+PrintMulInd:
+        MOV AL, '*'
+        MOV CX, 1
+        CALL PrintCharAttr
+        INC DL
+        CALL SetCursor
+        MOV AL, ' ' 
         MOV CX, 2
         CALL PrintCharAttr
         JMP OpIndDone
@@ -1649,6 +1803,8 @@ ApplyOperator PROC
         JE DoAdd
         CMP pending_operator, BTN_SUB
         JE DoSub
+        CMP pending_operator, BTN_MUL
+        JE DoMul
         JMP ApplyOpDone
 DoAdd:
         LEA SI, accumulator_low
@@ -1659,6 +1815,12 @@ DoSub:
         LEA SI, accumulator_low
         LEA DI, current_input_low
         CALL Sub32
+        JMP ApplyOpDone
+DoMul:
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Mul32x32
+        JMP ApplyOpDone
 ApplyOpDone:
         POP DI
         POP SI
