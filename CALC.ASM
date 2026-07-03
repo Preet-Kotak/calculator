@@ -327,6 +327,12 @@ TOTAL_BUTTONS EQU 34
         display_buffer      DB 16 DUP('$')
 
         error_flag          DB 0       ; OVERFLOW/DIV-BY-ZERO ERROR FLAG -> 1
+        accumulator_low     DW 0       ; LOWER 16 BIT OF ACCUMULATOR 
+        accumulator_high    DW 0       ; UPPER 16 BIT OF ACCUMULATOR
+        pending_operator    DW 0       ; BUTTON ID OF PENDING OPERATION
+        last_operator       DW 0       ; BUTTON ID OF LAST OPERATION
+        last_operand_low    DW 0       ; LOWER 16 BIT OF LAST OPERAND
+        last_operand_high   DW 0       ; UPPER 16 BIT OF LAST OPERAND
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -573,6 +579,8 @@ DrawDisplay PROC
         PUSH DX
         PUSH SI
 
+        CALL DrawOperatorIndicator
+
         ; TOP BORDER
         MOV DH, DISP_TOP
         MOV DL, DISP_LEFT
@@ -754,6 +762,21 @@ NotSignBtn:
         CALL DeleteDigit
         JMP ActDone
 NotDelBtn:
+        CMP selected_button, BTN_ADD
+        JE OpBtn
+        CMP selected_button, BTN_SUB
+        JE OpBtn
+        CMP selected_button, BTN_EQ
+        JE EqBtn
+        JMP ProceedToLabelCheck
+OpBtn:
+        MOV AX, selected_button
+        CALL ProcessOperator
+        JMP ActDone
+EqBtn:
+        CALL ProcessEquals
+        JMP ActDone
+ProceedToLabelCheck:
         MOV SI, [SI+4]
         MOV AL, [SI+2]
 
@@ -784,11 +807,28 @@ HandleNormalChar PROC
         CALL DeleteDigit
         RET
 NotBackspace:
+        CMP AL, '+'
+        JNE NotPlusKey
+        MOV AX, BTN_ADD
+        CALL ProcessOperator
+        RET
+NotPlusKey:
+        CMP AL, '-'
+        JNE NotMinusKey
+        MOV AX, BTN_SUB
+        CALL ProcessOperator
+        RET
+NotMinusKey:
+        CMP AL, '='
+        JNE NotEqualKey
+        CALL ProcessEquals
+        RET
+NotEqualKey:
         CMP AL, '.'
         JNE NotDotKey
         CALL AddDecimalPoint
-        RET      
-NotDotKey:
+        RET
+NotDotKey:        
         CMP AL, '0'
         JB CheckEnter
         CMP AL, '9'
@@ -1082,8 +1122,18 @@ ClearEntry PROC
 ClearEntry ENDP
 
 ClearAll PROC
-        ; CURRENTLY SAME AS CE WILL CLEAR CALCULATION REGISTERS ONCE ADDED
-        CALL ClearEntry     
+        CALL ClearEntry  
+
+        MOV accumulator_low, 0
+        MOV accumulator_high, 0
+        MOV pending_operator, 0
+        MOV last_operator, 0
+        MOV last_operand_low, 0
+        MOV last_operand_high, 0
+        MOV error_flag, 0
+
+        CALL UpdateDisplay
+        
         RET
 ClearAll ENDP
 
@@ -1387,6 +1437,8 @@ UpdateDisplay PROC
         PUSH SI
         PUSH DI
 
+        CALL DrawOperatorIndicator
+        
         MOV AX, current_input_low
         MOV DX, current_input_high
 
@@ -1527,6 +1579,192 @@ UpdateDisplay ENDP
 ;----------------------------------------------------------------------------
 ;CALCULATOR LOGIC
 ;----------------------------------------------------------------------------
+
+DrawOperatorIndicator PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        MOV DH, 8
+        MOV DL, 15
+        CALL SetCursor
+
+        MOV BL, 8BH 
+        CMP pending_operator, 0
+        JE ClearOpInd
+
+        CMP pending_operator, BTN_ADD
+        JE PrintAddInd
+        CMP pending_operator, BTN_SUB
+        JE PrintSubInd
+        JMP OpIndDone
+ClearOpInd:
+        MOV AL, ' '
+        MOV CX, 3
+        CALL PrintCharAttr
+        JMP OpIndDone
+PrintAddInd:
+        MOV AL, '+'
+        MOV CX, 1
+        CALL PrintCharAttr
+        INC DL
+        CALL SetCursor
+        MOV AL, ' '
+        MOV CX, 2
+        CALL PrintCharAttr
+        JMP OpIndDone
+PrintSubInd:
+        MOV AL, '-'
+        MOV CX, 1
+        CALL PrintCharAttr
+        INC DL
+        CALL SetCursor
+        MOV AL, ' '
+        MOV CX, 2
+        CALL PrintCharAttr
+        JMP OpIndDone
+OpIndDone:
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET 
+DrawOperatorIndicator ENDP
+
+ApplyOperator PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+
+        CMP error_flag, 0
+        JNE ApplyOpDone
+
+        CMP pending_operator, 0
+        JE ApplyOpDone
+
+        CMP pending_operator, BTN_ADD
+        JE DoAdd
+        CMP pending_operator, BTN_SUB
+        JE DoSub
+        JMP ApplyOpDone
+DoAdd:
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Add32
+        JMP ApplyOpDone
+DoSub:
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Sub32
+ApplyOpDone:
+        POP DI
+        POP SI
+        POP AX
+        RET
+ApplyOperator ENDP
+
+ProcessOperator PROC
+        PUSH AX
+        PUSH BX
+        PUSH SI
+        PUSH DI
+
+        MOV BX, AX
+
+        CMP error_flag, 0
+        JNE ProcOpDone
+
+        CMP input_active, 1
+        JNE SetNewPendingOp
+
+        CMP input_negative, 1
+        JNE NoNegateInput
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+NoNegateInput:
+        CMP pending_operator, 0
+        JE FirstOperand
+
+        CALL ApplyOperator
+        JMP CopyToInput
+FirstOperand:
+        LEA SI, current_input_low
+        LEA DI, accumulator_low
+        CALL Copy32
+CopyToInput:
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Copy32
+        MOV input_active, 0
+SetNewPendingOp:
+        MOV pending_operator, BX
+        CALL UpdateDisplay
+ProcOpDone:
+        POP DI
+        POP SI
+        POP BX
+        POP AX
+        RET
+ProcessOperator ENDP
+
+ProcessEquals PROC
+        PUSH AX
+        PUSH BX
+        PUSH SI
+        PUSH DI
+
+        CMP error_flag, 0
+        JNE ProcEqDone
+
+        CMP input_active, 1
+        JE CommitAndApply
+
+        CMP last_operator, 0
+        JE ProcEqDone
+
+        ;REPEAT EQUAL
+        LEA SI, last_operand_low
+        LEA DI, current_input_low
+        CALL Copy32
+        MOV AX, last_operator
+        MOV pending_operator, AX
+        CALL ApplyOperator
+
+        MOV pending_operator, 0
+        JMP UpdateAfterEq
+CommitAndApply:
+        CMP input_negative, 1
+        JNE NoNegateInputEq
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+NoNegateInputEq:
+        
+        LEA SI, current_input_low
+        LEA DI, last_operand_low
+        CALL Copy32
+        
+        MOV AX, pending_operator
+        MOV last_operator, AX
+        CALL ApplyOperator
+        MOV pending_operator, 0
+UpdateAfterEq:
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Copy32
+        MOV input_active, 0
+        CALL UpdateDisplay
+ProcEqDone:
+        POP DI
+        POP SI
+        POP BX
+        POP AX
+        RET
+ProcessEquals ENDP
 
 ;----------------------------------------------------------------------------
 ;ENTRY POINT
