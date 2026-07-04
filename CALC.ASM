@@ -831,6 +831,11 @@ NotSignBtn:
         CALL DeleteDigit
         JMP ActDone
 NotDelBtn:
+        CMP selected_button, BTN_NEG
+        JNE NotNEGBtn
+        CALL ProcessNEG
+        JMP ActDone
+NotNEGBtn:
         CMP selected_button, BTN_ADD
         JE OpBtn
         CMP selected_button, BTN_SUB
@@ -2135,6 +2140,48 @@ ProcOpDone:
         POP AX
         RET
 ProcessOperator ENDP
+
+ProcessNEG PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+
+        CMP error_flag, 0
+        JNE ProcessNEGDone
+
+        CMP input_active, 1
+        JNE DoNegateInactive
+
+        XOR input_negative, 1
+        JMP CheckAccumulatorCopy
+
+DoNegateInactive:
+        LEA SI, current_input_low
+        CALL Neg32
+
+CheckAccumulatorCopy:
+        CMP pending_operator, 0
+        JNE UpdateDisplayAfterNeg
+        
+        LEA SI, current_input_low
+        LEA DI, accumulator_low
+        CALL Copy32
+
+        CMP input_active, 1
+        JNE UpdateDisplayAfterNeg
+        CMP input_negative, 1
+        JNE UpdateDisplayAfterNeg
+        LEA SI, accumulator_low
+        CALL Neg32
+
+UpdateDisplayAfterNeg:
+        CALL UpdateDisplay
+ProcessNEGDone:
+        POP DI
+        POP SI
+        POP AX
+        RET
+ProcessNEG ENDP
 
 ProcessEquals PROC
         PUSH AX
