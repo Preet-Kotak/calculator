@@ -73,6 +73,11 @@ TOTAL_BUTTONS EQU 34
         MSG_ERR_DIGITS   DB 'MAX 8 DIGITS ALLOWED$'
         MSG_ERR_DECIMAL  DB 'ONLY ONE . ALLOWED$'
         MSG_ERR_PLACES   DB 'MAX 2 DEC PLACES$'
+        MSG_ERR_OVERFLOW DB 'ERROR: OVERFLOW$'
+        MSG_ERR_DIVZERO  DB 'ERROR: DIV BY ZERO$'
+
+        MSG_HINT_KEYS    DB 'Press [H] Help         Press [ESC] to Exit$'
+        MSG_HINT_ERR     DB 'Press [CLR] Continue   [0-9] New Number$'
 
         MSG_TITLE        DB '8086 CALCULATOR$'
         MSG_INITIAL_VAL  DB '0.00$'
@@ -478,6 +483,63 @@ PrintStringEnd:
         RET
 PrintStringAttr ENDP
 
+DrawHintLine PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        MOV DH, 21
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 80H
+        MOV CX, 58
+        CALL PrintCharAttr
+
+        MOV DH, 22
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 80H
+        MOV CX, 58
+        CALL PrintCharAttr
+
+        CMP error_flag, 0
+        JE  HintNormal
+
+        MOV DH, 21
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+        LEA SI, MSG_HINT_ERR
+        MOV BL, 8CH             
+        CALL PrintStringAttr
+
+        MOV DH, 22
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+        LEA SI, MSG_HINT_KEYS
+        MOV BL, 87H            
+        CALL PrintStringAttr
+        JMP HintDone
+HintNormal:
+        
+        MOV DH, 21
+        MOV DL, FRAME_LEFT
+        CALL SetCursor
+        LEA SI, MSG_HINT_KEYS
+        MOV BL, 87H             
+        CALL PrintStringAttr
+HintDone:
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DrawHintLine ENDP
+
 DrawFrame PROC
         PUSH AX
         PUSH BX
@@ -654,6 +716,7 @@ DrawDisplay PROC
         MOV BL, 8FH
         CALL PrintStringAttr
 
+        CALL DrawHintLine
         POP SI
         POP DX
         POP CX
@@ -1555,7 +1618,7 @@ Div32x32 PROC
         MOV AX, [DI]
         OR AX, [DI+2]
         JNZ DivNoZero
-        MOV error_flag, 1
+        MOV error_flag, 2
         JMP DivDone
 DivNoZero:
         MOV AX, [SI+2]
@@ -1713,6 +1776,44 @@ UpdateDisplay PROC
 
         CALL DrawOperatorIndicator
 
+        ; ERRORS
+        CMP error_flag, 0
+        JE UpDateDisplayNormal
+
+        MOV DH, 8
+        MOV DL, 45
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 8FH
+        MOV CX, 21
+        CALL PrintCharAttr
+
+        CMP error_flag, 2
+        JE  UpdDisp_IsDivZero
+        LEA SI, MSG_ERR_OVERFLOW
+        JMP UpdDisp_PrintErr
+UpdDisp_IsDivZero:
+        LEA SI, MSG_ERR_DIVZERO
+UpdDisp_PrintErr:
+        PUSH SI
+        XOR CX, CX
+UpdDisp_ErrLen:
+        CMP BYTE PTR [SI], '$'
+        JE  UpdDisp_ErrLenDone
+        INC SI
+        INC CX
+        JMP UpdDisp_ErrLen
+        UpdDisp_ErrLenDone:
+        POP SI
+        MOV DL, 66
+        SUB DL, CL
+        MOV DH, 8
+        CALL SetCursor
+        MOV BL, 8CH
+        CALL PrintStringAttr
+        JMP UpdDisp_Exit
+
+UpDateDisplayNormal:
         MOV AX, current_input_low
         MOV DX, current_input_high
 
@@ -1839,7 +1940,8 @@ LenDone:
         LEA SI, display_buffer
         MOV BL, 8FH
         CALL PrintStringAttr
-
+UpdDisp_Exit:
+        Call DrawHintLine
         POP DI
         POP SI
         POP DX
