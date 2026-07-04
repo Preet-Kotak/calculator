@@ -1001,6 +1001,12 @@ AddDigit PROC
         PUSH DX
         PUSH SI
 
+        CMP error_flag, 0
+        JE  AddDigit_NoError
+        PUSH AX             
+        CALL ClearAll
+        POP AX 
+AddDigit_NoError:
         SUB AL, '0'
         MOV AH, 0
         PUSH AX
@@ -1082,6 +1088,10 @@ AddDecimalPoint PROC
         PUSH AX
         PUSH SI
 
+        CMP error_flag, 0
+        JE  AddDecimal_NoError
+        CALL ClearAll
+AddDecimal_NoError:
         CMP input_active, 0
         JNE DecimalActive
 
