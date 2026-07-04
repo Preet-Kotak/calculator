@@ -1585,10 +1585,10 @@ DivNoZero:
 
         MOV AX, temp_x_high
         MUL CX
-        ADD AX, [BP-4]
+        ADD [BP-4], AX
         ADC DX, 0
-        MOV [BP-6], AX
-        MOV [BP-8], DX
+        MOV [BP-6], DX
+        
 
         XOR AX, AX
         MOV [BP-10], AX         ; R_L = 0
