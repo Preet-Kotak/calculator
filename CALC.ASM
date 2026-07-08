@@ -75,7 +75,6 @@ TOTAL_BUTTONS EQU 34
         MSG_ERR_PLACES   DB 'MAX 2 DEC PLACES$'
         MSG_ERR_OVERFLOW DB 'ERROR: OVERFLOW$'
         MSG_ERR_DIVZERO  DB 'ERROR: DIV BY ZERO$'
-        MSG_ERR_NOREPEAT DB 'ERROR: NO REPEATED SPECIAL OPERATOR$'
         MSG_ERR_INVALID  DB 'ERROR: INVALID INPUT$'
 
         MSG_HINT_KEYS    DB 'Press [H] Help         Press [ESC] to Exit$'
@@ -1935,8 +1934,6 @@ UpdateDisplay PROC
 
         CMP error_flag, 2
         JE  UpdDisp_IsDivZero
-        CMP error_flag, 3
-        JE RepeatedOperator
         CMP error_flag, 4
         JE InvalidInput
         LEA SI, MSG_ERR_OVERFLOW
@@ -1947,8 +1944,6 @@ UpdDisp_IsDivZero:
 InvalidInput:
         LEA SI, MSG_ERR_INVALID
         JMP UpdDisp_PrintErr
-RepeatedOperator:
-        LEA SI, MSG_ERR_NOREPEAT
 UpdDisp_PrintErr:
         PUSH SI
         XOR CX, CX
@@ -2470,13 +2465,6 @@ ProcessEquals PROC
         JE ProcEqDone
 
         ;REPEAT EQUAL
-        CMP last_operator, BTN_MOD
-        JNE NoRepeatErr
-        CMP last_operator, BTN_POW
-        JNE NoRepeatErr
-        MOV error_flag, 3
-        JMP ProcEqDone
-NoRepeatErr:
         LEA SI, last_operand_low
         LEA DI, current_input_low
         CALL Copy32
