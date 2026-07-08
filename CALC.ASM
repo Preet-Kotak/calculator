@@ -76,6 +76,7 @@ TOTAL_BUTTONS EQU 34
         MSG_ERR_OVERFLOW DB 'ERROR: OVERFLOW$'
         MSG_ERR_DIVZERO  DB 'ERROR: DIV BY ZERO$'
         MSG_ERR_NOREPEAT DB 'ERROR: NO REPEATED SPECIAL OPERATOR$'
+        MSG_ERR_INVALID  DB 'ERROR: INVALID INPUT$'
 
         MSG_HINT_KEYS    DB 'Press [H] Help         Press [ESC] to Exit$'
         MSG_HINT_ERR     DB 'Press [CLR] Continue   [0-9] New Number$'
@@ -860,6 +861,8 @@ NotPCTBtn:
         CMP selected_button, BTN_DIV
         JE OpBtn
         CMP selected_button, BTN_MOD
+        JE OpBtn
+        CMP selected_button, BTN_POW
         JE OpBtn
         JMP ProceedToLabelCheck
 OpBtn:
@@ -1836,6 +1839,75 @@ Div32By1000 PROC
         RET
 Div32By1000 ENDP
 
+POW32x32 PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI
+
+        
+        MOV AX, current_input_high
+        TEST AX, 8000H
+        JNZ PowInvalid
+
+        LEA SI, current_input_low
+        CALL Div32By100
+
+        CMP current_input_high, 0
+        JNE PowOverflow
+
+        MOV CX, current_input_low  
+
+        CMP accumulator_high, 0
+        JNE PowNotZeroZero
+        CMP accumulator_low, 0
+        JNE PowNotZeroZero
+        CMP CX, 0
+        JE PowInvalid            
+
+        MOV accumulator_low, 0
+        MOV accumulator_high, 0
+        JMP PowDone
+PowNotZeroZero:
+        
+        CMP CX, 0
+        JNE PowStartLoop
+        MOV accumulator_low, 100
+        MOV accumulator_high, 0
+        JMP PowDone
+PowStartLoop:
+        
+        LEA SI, accumulator_low
+        LEA DI, mod_temp_low
+        CALL Copy32
+
+        DEC CX                  
+        CMP CX, 0
+        JE PowDone             
+PowLoop:
+        LEA SI, accumulator_low
+        LEA DI, mod_temp_low
+        CALL Mul32x32            
+        CMP error_flag, 0
+        JNE PowDone              
+        LOOP PowLoop
+        JMP PowDone
+PowInvalid:
+        MOV error_flag, 4        
+        JMP PowDone
+PowOverflow:
+        MOV error_flag, 1        
+PowDone:
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+POW32x32 ENDP
 ;----------------------------------------------------------------------------
 ;FORMATTING ROUTINES
 ;----------------------------------------------------------------------------
@@ -1865,10 +1937,15 @@ UpdateDisplay PROC
         JE  UpdDisp_IsDivZero
         CMP error_flag, 3
         JE RepeatedOperator
+        CMP error_flag, 4
+        JE InvalidInput
         LEA SI, MSG_ERR_OVERFLOW
         JMP UpdDisp_PrintErr
 UpdDisp_IsDivZero:
         LEA SI, MSG_ERR_DIVZERO
+        JMP UpdDisp_PrintErr
+InvalidInput:
+        LEA SI, MSG_ERR_INVALID
         JMP UpdDisp_PrintErr
 RepeatedOperator:
         LEA SI, MSG_ERR_NOREPEAT
@@ -2059,7 +2136,12 @@ DrawOperatorIndicator PROC
         JE PrintDivInd
         CMP pending_operator, BTN_MOD
         JE PrintMODInd
+        CMP pending_operator, BTN_POW
+        JE PrintPOWInd_JUMP
+
         JMP OpIndDone
+PrintPOWInd_JUMP:
+        JMP PrintPOWInd
 ClearOpInd:
         MOV AL, ' '
         MOV CX, 3
@@ -2118,6 +2200,19 @@ PrintMODInd:
         MOV AL, 'D'
         CALL PrintCharAttr
         JMP OpIndDone
+PrintPOWInd:
+        MOV AL, 'P'
+        MOV CX, 1
+        CALL PrintCharAttr
+        INC DL
+        CALL SetCursor
+        MOV AL, 'O'
+        CALL PrintCharAttr
+        INC DL 
+        CALL SetCursor
+        MOV AL, 'W'
+        CALL PrintCharAttr
+        JMP OpIndDone
 OpIndDone:
         POP SI
         POP DX
@@ -2148,6 +2243,8 @@ ApplyOperator PROC
         JE DoDiv
         CMP pending_operator, BTN_MOD
         JE DoMod
+        CMP pending_operator, BTN_POW
+        JE DoPOW
         JMP ApplyOpDone
 DoAdd:
         LEA SI, accumulator_low
@@ -2173,6 +2270,9 @@ DoMod:
         LEA SI, accumulator_low
         LEA DI, current_input_low
         CALL Mod32x32
+        JMP ApplyOpDone
+DoPOW:
+        CALL POW32x32
         JMP ApplyOpDone
 ApplyOpDone:
         POP DI
@@ -2371,6 +2471,8 @@ ProcessEquals PROC
 
         ;REPEAT EQUAL
         CMP last_operator, BTN_MOD
+        JNE NoRepeatErr
+        CMP last_operator, BTN_POW
         JNE NoRepeatErr
         MOV error_flag, 3
         JMP ProcEqDone
