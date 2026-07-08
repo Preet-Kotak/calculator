@@ -844,6 +844,11 @@ NotNEGBtn:
         CALL ProcessABS
         JMP ActDone
 NotABSBtn:
+        CMP selected_button, BTN_SQR
+        JNE NotSQRBtn
+        CALL ProcessSQR
+        JMP ActDone
+NotSQRBtn:
         CMP selected_button, BTN_PCT
         JNE NotPCTBtn
         CALL ProcessPCT
@@ -1802,6 +1807,171 @@ Mod32Done:
         RET
 Mod32x32 ENDP
 
+Sqrt32x32 PROC
+        PUSH BP
+        MOV BP, SP
+        SUB SP, 32               ; Allocate 32 bytes of local stack storage
+
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+        PUSH DI
+
+        ; 1. N = current_input * 100 (64-bit product in N0..N3)
+        ; [BP-2] = N0, [BP-4] = N1, [BP-6] = N2, [BP-8] = N3
+        MOV AX, current_input_low
+        MOV CX, 100
+        MUL CX
+        MOV [BP-2], AX          ; N0
+        MOV [BP-4], DX          ; N1
+
+        MOV AX, current_input_high
+        MUL CX
+        ADD [BP-4], AX          ; N1 = N1 + high_low
+        ADC DX, 0
+        MOV [BP-6], DX          ; N2
+        MOV WORD PTR [BP-8], 0  ; N3 = 0
+
+        ; 2. Initialize bit = 0x4000000000000000 (2^62)
+        ; [BP-10] = bit0, [BP-12] = bit1, [BP-14] = bit2, [BP-16] = bit3
+        MOV WORD PTR [BP-10], 0
+        MOV WORD PTR [BP-12], 0
+        MOV WORD PTR [BP-14], 0
+        MOV WORD PTR [BP-16], 4000H
+
+        ; 3. Initialize res = 0 (64-bit during loop)
+        ; [BP-18] = res0, [BP-20] = res1, [BP-22] = res2, [BP-24] = res3
+        MOV WORD PTR [BP-18], 0
+        MOV WORD PTR [BP-20], 0
+        MOV WORD PTR [BP-22], 0
+        MOV WORD PTR [BP-24], 0
+
+        ; Loop counter = 32
+        MOV CX, 32
+
+SqrLoop:
+        PUSH CX                 ; Preserve CX (loop counter)
+
+        ; 4. temp = res + bit (64-bit temp at BP-26..BP-32)
+        MOV AX, [BP-18]         ; res0
+        ADD AX, [BP-10]         ; + bit0
+        MOV [BP-26], AX         ; temp0
+        
+        MOV AX, [BP-20]         ; res1
+        ADC AX, [BP-12]         ; + bit1
+        MOV [BP-28], AX         ; temp1
+        
+        MOV AX, [BP-22]         ; res2
+        ADC AX, [BP-14]         ; + bit2
+        MOV [BP-30], AX         ; temp2
+        
+        MOV AX, [BP-24]         ; res3
+        ADC AX, [BP-16]         ; + bit3
+        MOV [BP-32], AX         ; temp3
+
+        ; 5. Compare N with temp (both 64-bit unsigned)
+        MOV AX, [BP-8]          ; N3
+        CMP AX, [BP-32]         ; temp3
+        JA  Sqr_N_Ge_Temp
+        JB  Sqr_N_Lt_Temp
+        
+        MOV AX, [BP-6]          ; N2
+        CMP AX, [BP-30]         ; temp2
+        JA  Sqr_N_Ge_Temp
+        JB  Sqr_N_Lt_Temp
+        
+        MOV AX, [BP-4]          ; N1
+        CMP AX, [BP-28]         ; temp1
+        JA  Sqr_N_Ge_Temp
+        JB  Sqr_N_Lt_Temp
+        
+        MOV AX, [BP-2]          ; N0
+        CMP AX, [BP-26]         ; temp0
+        JAE Sqr_N_Ge_Temp
+        JMP Sqr_N_Lt_Temp
+
+Sqr_N_Ge_Temp:
+        ; 6. N = N - temp
+        MOV AX, [BP-2]          ; N0
+        SUB AX, [BP-26]         ; temp0
+        MOV [BP-2], AX
+        
+        MOV AX, [BP-4]          ; N1
+        SBB AX, [BP-28]         ; temp1
+        MOV [BP-4], AX
+        
+        MOV AX, [BP-6]          ; N2
+        SBB AX, [BP-30]         ; temp2
+        MOV [BP-6], AX
+        
+        MOV AX, [BP-8]          ; N3
+        SBB AX, [BP-32]         ; temp3
+        MOV [BP-8], AX
+
+        ; 7. res = (res >> 1) + bit
+        ; Shift res right by 1
+        SHR WORD PTR [BP-24], 1 ; res3
+        RCR WORD PTR [BP-22], 1 ; res2
+        RCR WORD PTR [BP-20], 1 ; res1
+        RCR WORD PTR [BP-18], 1 ; res0
+        
+        ; Add bit to res
+        MOV AX, [BP-10]         ; bit0
+        ADD [BP-18], AX         ; res0
+        MOV AX, [BP-12]         ; bit1
+        ADC [BP-20], AX         ; res1
+        MOV AX, [BP-14]         ; bit2
+        ADC [BP-22], AX         ; res2
+        MOV AX, [BP-16]         ; bit3
+        ADC [BP-24], AX         ; res3
+        JMP Sqr_Next_Iteration
+
+Sqr_N_Lt_Temp:
+        ; 8. res = res >> 1
+        SHR WORD PTR [BP-24], 1 ; res3
+        RCR WORD PTR [BP-22], 1 ; res2
+        RCR WORD PTR [BP-20], 1 ; res1
+        RCR WORD PTR [BP-18], 1 ; res0
+
+Sqr_Next_Iteration:
+        ; 9. bit = bit >> 2
+        ; 1st shift right by 1
+        SHR WORD PTR [BP-16], 1 ; bit3
+        RCR WORD PTR [BP-14], 1 ; bit2
+        RCR WORD PTR [BP-12], 1 ; bit1
+        RCR WORD PTR [BP-10], 1 ; bit0
+        ; 2nd shift right by 1
+        SHR WORD PTR [BP-16], 1 ; bit3
+        RCR WORD PTR [BP-14], 1 ; bit2
+        RCR WORD PTR [BP-12], 1 ; bit1
+        RCR WORD PTR [BP-10], 1 ; bit0
+
+        POP CX                  ; Restore loop counter
+        DEC CX                  ; Decrement CX
+        JZ Sqr_LoopDone_Far     ; Jump if CX = 0 (close target)
+        JMP SqrLoop             ; Loop start (near target, avoids compile range limits)
+
+Sqr_LoopDone_Far:
+        ; 10. Copy res (res0, res1) to current_input
+        MOV AX, [BP-18]
+        MOV current_input_low, AX
+        MOV AX, [BP-20]
+        MOV current_input_high, AX
+
+        POP DI
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        MOV SP, BP
+        POP BP
+        RET
+Sqrt32x32 ENDP
+
+
 Mul32By2 PROC
         MOV CX, 2
         CALL Mul32ByCX
@@ -1925,11 +2095,11 @@ UpdateDisplay PROC
         JE UpDateDisplayNormal
 
         MOV DH, 8
-        MOV DL, 30
+        MOV DL, 35
         CALL SetCursor
         MOV AL, ' '
         MOV BL, 8FH
-        MOV CX, 36
+        MOV CX, 31
         CALL PrintCharAttr
 
         CMP error_flag, 2
@@ -1953,7 +2123,7 @@ UpdDisp_ErrLen:
         INC SI
         INC CX
         JMP UpdDisp_ErrLen
-        UpdDisp_ErrLenDone:
+UpdDisp_ErrLenDone:
         POP SI
         MOV DL, 66
         SUB DL, CL
@@ -2063,11 +2233,11 @@ CopyIntLoop:
 
         ; CLEAR DISPLAY
         MOV DH, 8
-        MOV DL, 30
+        MOV DL, 35
         CALL SetCursor
         MOV AL, ' '
         MOV BL, 8FH
-        MOV CX, 36
+        MOV CX, 31
         CALL PrintCharAttr
 
         ; CALCULATE LENGTH TO DISPLAY
@@ -2392,6 +2562,58 @@ ProcessABSDone:
         POP AX
         RET
 ProcessABS ENDP
+
+ProcessSQR PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+
+        CMP error_flag, 0
+        JNE ProcessSQRDone
+
+        CMP input_active, 1
+        JNE DoSqrInactive
+
+        CMP input_negative, 1
+        JNE NoNegateInputSqr
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+NoNegateInputSqr:
+        MOV input_active, 0
+        
+DoSqrInactive:
+        MOV AX, current_input_high
+        TEST AX, 8000H
+        JNZ SqrInvalid
+
+        CALL Sqrt32x32
+
+        CMP error_flag, 0
+        JNE ProcessSQRDone
+
+        CMP pending_operator, 0
+        JNE UpdateDisplayAfterSqr
+        
+        LEA SI, current_input_low
+        LEA DI, accumulator_low
+        CALL Copy32
+
+UpdateDisplayAfterSqr:
+        CALL UpdateDisplay
+        JMP ProcessSQRDone
+
+SqrInvalid:
+        MOV error_flag, 4
+        CALL UpdateDisplay
+
+ProcessSQRDone:
+        POP DI
+        POP SI
+        POP AX
+        RET
+ProcessSQR ENDP
+
 
 ProcessPCT PROC
         PUSH AX
