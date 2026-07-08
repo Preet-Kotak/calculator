@@ -75,6 +75,7 @@ TOTAL_BUTTONS EQU 34
         MSG_ERR_PLACES   DB 'MAX 2 DEC PLACES$'
         MSG_ERR_OVERFLOW DB 'ERROR: OVERFLOW$'
         MSG_ERR_DIVZERO  DB 'ERROR: DIV BY ZERO$'
+        MSG_ERR_NOREPEAT DB 'ERROR: NO REPEATED SPECIAL OPERATOR$'
 
         MSG_HINT_KEYS    DB 'Press [H] Help         Press [ESC] to Exit$'
         MSG_HINT_ERR     DB 'Press [CLR] Continue   [0-9] New Number$'
@@ -331,6 +332,8 @@ TOTAL_BUTTONS EQU 34
 
         display_buffer      DB 16 DUP('$')
 
+        mod_temp_low        DW 0
+        mod_temp_high       DW 0
         error_flag          DB 0       ; OVERFLOW/DIV-BY-ZERO ERROR FLAG -> 1
         accumulator_low     DW 0       ; LOWER 16 BIT OF ACCUMULATOR 
         accumulator_high    DW 0       ; UPPER 16 BIT OF ACCUMULATOR
@@ -850,6 +853,8 @@ NotABSBtn:
         CMP selected_button, BTN_MUL
         JE OpBtn
         CMP selected_button, BTN_DIV
+        JE OpBtn
+        CMP selected_button, BTN_MOD
         JE OpBtn
         JMP ProceedToLabelCheck
 OpBtn:
@@ -1672,6 +1677,7 @@ DivNoZero:
         ADC DX, 0
         MOV [BP-6], DX
         
+        MOV WORD PTR [BP-8], 0
 
         XOR AX, AX
         MOV [BP-10], AX         ; R_L = 0
@@ -1747,6 +1753,48 @@ DivDone:
         RET
 Div32x32 ENDP
 
+Mod32x32 PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+
+        LEA SI, accumulator_low
+        LEA DI, mod_temp_low
+        CALL Copy32
+
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Div32x32
+        CMP error_flag, 0
+        JNE Mod32Done
+
+        LEA SI, accumulator_low
+        CALL Div32By100
+        CALL Mul32By100
+
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Mul32x32
+        CMP error_flag, 0
+        JNE Mod32Done
+
+        LEA SI, mod_temp_low
+        LEA DI, accumulator_low
+        CALL Sub32
+        CMP error_flag, 0
+        JNE Mod32Done
+
+        LEA SI, mod_temp_low
+        LEA DI, accumulator_low
+        CALL Copy32
+
+Mod32Done:
+        POP DI
+        POP SI
+        POP AX
+        RET
+Mod32x32 ENDP
+
 Mul32By2 PROC
         MOV CX, 2
         CALL Mul32ByCX
@@ -1801,19 +1849,24 @@ UpdateDisplay PROC
         JE UpDateDisplayNormal
 
         MOV DH, 8
-        MOV DL, 45
+        MOV DL, 30
         CALL SetCursor
         MOV AL, ' '
         MOV BL, 8FH
-        MOV CX, 21
+        MOV CX, 36
         CALL PrintCharAttr
 
         CMP error_flag, 2
         JE  UpdDisp_IsDivZero
+        CMP error_flag, 3
+        JE RepeatedOperator
         LEA SI, MSG_ERR_OVERFLOW
         JMP UpdDisp_PrintErr
 UpdDisp_IsDivZero:
         LEA SI, MSG_ERR_DIVZERO
+        JMP UpdDisp_PrintErr
+RepeatedOperator:
+        LEA SI, MSG_ERR_NOREPEAT
 UpdDisp_PrintErr:
         PUSH SI
         XOR CX, CX
@@ -1933,11 +1986,11 @@ CopyIntLoop:
 
         ; CLEAR DISPLAY
         MOV DH, 8
-        MOV DL, 45
+        MOV DL, 30
         CALL SetCursor
         MOV AL, ' '
         MOV BL, 8FH
-        MOV CX, 21
+        MOV CX, 36
         CALL PrintCharAttr
 
         ; CALCULATE LENGTH TO DISPLAY
@@ -1999,6 +2052,8 @@ DrawOperatorIndicator PROC
         JE PrintMulInd
         CMP pending_operator, BTN_DIV
         JE PrintDivInd
+        CMP pending_operator, BTN_MOD
+        JE PrintMODInd
         JMP OpIndDone
 ClearOpInd:
         MOV AL, ' '
@@ -2045,6 +2100,19 @@ PrintDivInd:
         MOV CX, 2
         CALL PrintCharAttr
         JMP OpIndDone
+PrintMODInd:
+        MOV AL, 'M'
+        MOV CX, 1
+        CALL PrintCharAttr
+        INC DL
+        CALL SetCursor
+        MOV AL, 'O'
+        CALL PrintCharAttr
+        INC DL 
+        CALL SetCursor
+        MOV AL, 'D'
+        CALL PrintCharAttr
+        JMP OpIndDone
 OpIndDone:
         POP SI
         POP DX
@@ -2073,6 +2141,8 @@ ApplyOperator PROC
         JE DoMul
         CMP pending_operator, BTN_DIV
         JE DoDiv
+        CMP pending_operator, BTN_MOD
+        JE DoMod
         JMP ApplyOpDone
 DoAdd:
         LEA SI, accumulator_low
@@ -2093,6 +2163,11 @@ DoDiv:
         LEA SI, accumulator_low
         LEA DI, current_input_low
         CALL Div32x32
+        JMP ApplyOpDone
+DoMod:
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Mod32x32
         JMP ApplyOpDone
 ApplyOpDone:
         POP DI
@@ -2234,6 +2309,11 @@ ProcessEquals PROC
         JE ProcEqDone
 
         ;REPEAT EQUAL
+        CMP last_operator, BTN_MOD
+        JNE NoRepeatErr
+        MOV error_flag, 3
+        JMP ProcEqDone
+NoRepeatErr:
         LEA SI, last_operand_low
         LEA DI, current_input_low
         CALL Copy32
@@ -2263,9 +2343,10 @@ UpdateAfterEq:
         LEA SI, accumulator_low
         LEA DI, current_input_low
         CALL Copy32
+        
+ProcEqDone:
         MOV input_active, 0
         CALL UpdateDisplay
-ProcEqDone:
         POP DI
         POP SI
         POP BX
