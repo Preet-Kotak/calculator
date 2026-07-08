@@ -844,6 +844,11 @@ NotNEGBtn:
         CALL ProcessABS
         JMP ActDone
 NotABSBtn:
+        CMP selected_button, BTN_PCT
+        JNE NotPCTBtn
+        CALL ProcessPCT
+        JMP ActDone
+NotPCTBtn:
         CMP selected_button, BTN_ADD
         JE OpBtn
         CMP selected_button, BTN_SUB
@@ -2292,6 +2297,62 @@ ProcessABSDone:
         POP AX
         RET
 ProcessABS ENDP
+
+ProcessPCT PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+   
+        CMP error_flag, 0
+        JNE PCTDone
+
+        CMP input_active, 0
+        JNE PctCommitSign
+        MOV input_active, 1
+PctCommitSign:
+        CMP input_negative, 1
+        JNE PctCheckMode
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+PctCheckMode:
+        CMP pending_operator, BTN_ADD
+        JE PctAdditive
+        CMP pending_operator, BTN_SUB
+        JE PctAdditive
+
+        LEA SI, current_input_low
+        CALL Div32By100
+        JMP PCTDone
+PctAdditive:
+        LEA SI, accumulator_low
+        LEA DI, mod_temp_low
+        CALL Copy32
+
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Mul32x32
+        CMP error_flag, 0
+        JNE PCTDone
+
+        LEA SI, accumulator_low
+        CALL Div32By100
+
+        LEA SI, accumulator_low
+        LEA DI, current_input_low
+        CALL Copy32
+
+        LEA SI, mod_temp_low
+        LEA DI, accumulator_low
+        CALL Copy32
+PCTDone:
+        CALL UpdateDisplay
+        POP DI
+        POP SI
+        POP AX
+        RET
+ProcessPCT ENDP
+
 
 ProcessEquals PROC
         PUSH AX
