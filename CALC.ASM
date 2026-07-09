@@ -10,7 +10,7 @@ FRAME_BOTTOM  EQU 20
 FRAME_WIDTH   EQU 56
 
 TITLE_ROW     EQU 5
-TITLE_COL     EQU 32
+TITLE_COL     EQU 35
                
 DISP_LEFT     EQU 13
 DISP_RIGHT    EQU 66
@@ -80,7 +80,7 @@ TOTAL_BUTTONS EQU 34
         MSG_HINT_KEYS    DB 'Press [H] Help         Press [ESC] to Exit$'
         MSG_HINT_ERR     DB 'Press [CLR] Continue   [0-9] New Number$'
 
-        MSG_TITLE        DB '8086 CALCULATOR$'
+        MSG_TITLE        DB 'CALCULATOR$'
         MSG_INITIAL_VAL  DB '0.00$'
 
         ;ROW 11
@@ -927,55 +927,329 @@ ActivateSelectedButton ENDP
 
 HandleNormalChar PROC
 
-        CMP AL, 08H         ; BACK SPACE
+        CMP AL, 20H                     ;       SPACE BAR FOR BUTTON SELECTION
+        JNE NotSpaceKey
+        CALL ActivateSelectedButton
+        RET
+NotSpaceKey:
+
+        CMP AL, 0DH                     ;       ENTER -> =
+        JNE NotEnterKey
+        MOV selected_button, BTN_EQ
+        CALL DrawButtons
+        CALL ProcessEquals
+        RET
+NotEnterKey:
+        
+        CMP AL, 08H                     ;       BACKSPACE DELETE LAST CHARACTER
         JNE NotBackspace
+        MOV selected_button, BTN_DEL
+        CALL DrawButtons
         CALL DeleteDigit
         RET
 NotBackspace:
-        CMP AL, '+'
+        
+        CMP AL, '+'                     
         JNE NotPlusKey
+        MOV selected_button, BTN_ADD
+        CALL DrawButtons
         MOV AX, BTN_ADD
         CALL ProcessOperator
         RET
 NotPlusKey:
-        CMP AL, '-'
+
+        CMP AL, '-'                     
         JNE NotMinusKey
+        MOV selected_button, BTN_SUB
+        CALL DrawButtons
         MOV AX, BTN_SUB
         CALL ProcessOperator
         RET
 NotMinusKey:
-        CMP AL, '*'
+        
+        CMP AL, '*'                     
         JNE NotMulKey
+        MOV selected_button, BTN_MUL
+        CALL DrawButtons
         MOV AX, BTN_MUL
         CALL ProcessOperator
         RET
 NotMulKey:
-        CMP AL, '/'
+
+        CMP AL, '/'                     
         JNE NotDivKey
+        MOV selected_button, BTN_DIV
+        CALL DrawButtons
         MOV AX, BTN_DIV
         CALL ProcessOperator
-NotDivKey:
-        CMP AL, '='
-        JNE NotEqualKey
-        CALL ProcessEquals
         RET
-NotEqualKey:
+NotDivKey:
+
+        CMP AL, '%'                     
+        JNE NotPCTKey
+        MOV selected_button, BTN_PCT
+        CALL DrawButtons
+        CALL ProcessPCT
+        RET
+NotPCTKey:
+
+        CMP AL, '^'                     
+        JNE NotPOW
+        MOV selected_button, BTN_POW
+        CALL DrawButtons
+        MOV AX, BTN_POW
+        CALL ProcessOperator
+        RET
+NotPOW:
+
+        CMP AL, 'c'
+        JE DoClearAll
+        CMP AL, 'C'
+        JNE NotClearAll
+DoClearAll:
+
+        MOV selected_button, BTN_CLR
+        CALL DrawButtons
+        CALL ClearAll
+        RET
+NotClearAll:
+
+        CMP AL, 'e'
+        JE DoClearEntry
+        CMP AL, 'E'
+        JNE NotClearEntry
+DoClearEntry:
+
+        MOV selected_button, BTN_CE
+        CALL DrawButtons
+        CALL ClearEntry
+        RET
+NotClearEntry:
+
+        CMP AL, 'h'
+        JE DoHelp
+        CMP AL, 'H'
+        JNE NotHelp
+DoHelp:
+        
+        ; CALL HELP SCREEN PROC
+        RET
+NotHelp:
+
+        CMP AL, 'm'
+        JE DoModulo
+        CMP AL, 'M'
+        JNE NotModulo
+DoModulo:
+        
+        MOV selected_button, BTN_MOD
+        CALL DrawButtons
+        MOV AX, BTN_MOD
+        CALL ProcessOperator
+        RET
+NotModulo:
+
+        CMP AL, 'q'
+        JE DoSQRT
+        CMP AL, 'Q'
+        JNE NotSQRT
+DoSQRT:
+ 
+        MOV selected_button, BTN_SQR
+        CALL DrawButtons
+        CALL ProcessSQR
+        RET
+NotSQRT:
+
+        CMP AL, 's'
+        JE DoSIGN
+        CMP AL, 'S'
+        JNE NotSIGN
+DoSIGN:
+ 
+        MOV selected_button, BTN_SIGN
+        CALL DrawButtons
+        CALL ToggleSign
+        RET
+NotSIGN:
+
+        CMP AL, 'n'
+        JE DoNEG
+        CMP AL, 'N'
+        JNE NotNEG
+DoNEG:
+ 
+        MOV selected_button, BTN_NEG
+        CALL DrawButtons
+        CALL ProcessNEG
+        RET
+NotNEG:
+
+        CMP AL, 'a'
+        JE DoABS 
+        CMP AL, 'A'
+        JNE NotABS
+DoABS:
+ 
+        MOV selected_button, BTN_ABS
+        CALL DrawButtons
+        CALL ProcessABS
+        RET
+NotABS:
+
+        CMP AL, 'o'
+        JE DoMS
+        CMP AL, 'O'
+        JNE NotMS
+DoMS:
+ 
+        MOV selected_button, BTN_MS
+        CALL DrawButtons
+        CALL ProcessMS
+        RET
+NotMS:
+
+        CMP AL, 'r'
+        JE DoMR
+        CMP AL, 'R'
+        JNE NotMR
+DoMR:
+ 
+        MOV selected_button, BTN_MR
+        CALL DrawButtons
+        CALL ProcessMR
+        RET
+NotMR:
+
+        CMP AL, 'v'
+        JE DoMC
+        CMP AL, 'V'
+        JNE NotMC
+DoMC:
+ 
+        MOV selected_button, BTN_MC
+        CALL DrawButtons
+        CALL ProcessMC
+        RET
+NotMC:
+
+        CMP AL, 'd'
+        JE DoDEC 
+        CMP AL, 'D'
+        JNE NotDEC 
+DoDEC:
+ 
+        MOV selected_button, BTN_DEC
+        CALL DrawButtons
+        ;
+        RET
+NotDEC:
+
+        CMP AL, 'x'
+        JE DoHEX
+        CMP AL, 'X'
+        JNE NotHEX
+DoHEX:
+ 
+        MOV selected_button, BTN_HEX
+        CALL DrawButtons
+        ;
+        RET
+NotHEX:
+
+        CMP AL, 'b'
+        JE DoBIN
+        CMP AL, 'B'
+        JNE NotBIN
+DoBIN:
+ 
+        MOV selected_button, BTN_BIN
+        CALL DrawButtons
+        ;
+        RET
+NotBIN:
+
+        CMP AL, 'f'
+        JE DoFRC
+        CMP AL, 'F'
+        JNE NotFRC
+DoFRC:
+ 
+        MOV selected_button, BTN_FRC
+        CALL DrawButtons
+        ;
+        RET
+NotFRC:
+
         CMP AL, '.'
         JNE NotDotKey
+        MOV selected_button, BTN_DOT
+        CALL DrawButtons
         CALL AddDecimalPoint
         RET
-NotDotKey:        
+NotDotKey: 
+
         CMP AL, '0'
-        JB CheckEnter
+        JB SkipNormalChar
         CMP AL, '9'
-        JA CheckEnter
-        CALL AddDigit       
-        RET 
-CheckEnter:
-        CMP AL, 0DH 
-        JNE SkipActivate
-        CALL ActivateSelectedButton
-SkipActivate:
+        JA SkipNormalChar
+
+        PUSH AX
+        
+        CMP AL, '0'
+        JNE NotDigit0
+        MOV AX, BTN_0
+        JMP FocusDigitDone
+NotDigit0:
+        CMP AL, '1'
+        JNE NotDigit1
+        MOV AX, BTN_1
+        JMP FocusDigitDone
+NotDigit1:
+        CMP AL, '2'
+        JNE NotDigit2
+        MOV AX, BTN_2
+        JMP FocusDigitDone
+NotDigit2:
+        CMP AL, '3'
+        JNE NotDigit3
+        MOV AX, BTN_3
+        JMP FocusDigitDone
+NotDigit3:
+        CMP AL, '4'
+        JNE NotDigit4
+        MOV AX, BTN_4
+        JMP FocusDigitDone
+NotDigit4:
+        CMP AL, '5'
+        JNE NotDigit5
+        MOV AX, BTN_5
+        JMP FocusDigitDone
+NotDigit5:
+        CMP AL, '6'
+        JNE NotDigit6
+        MOV AX, BTN_6
+        JMP FocusDigitDone
+NotDigit6:
+        CMP AL, '7'
+        JNE NotDigit7
+        MOV AX, BTN_7
+        JMP FocusDigitDone
+NotDigit7:
+        CMP AL, '8'
+        JNE NotDigit8
+        MOV AX, BTN_8
+        JMP FocusDigitDone
+NotDigit8:
+        MOV AX, BTN_9
+FocusDigitDone:
+        MOV selected_button, AX
+        CALL DrawButtons
+        
+        POP AX
+        CALL AddDigit
+        RET
+SkipNormalChar:
         RET
 HandleNormalChar ENDP
 
