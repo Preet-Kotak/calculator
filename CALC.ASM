@@ -19,47 +19,47 @@ DISP_BOTTOM   EQU 9
 DISP_WIDTH    EQU 52
               
 ;ROW 11       
-BTN_HEX       EQU 0000H
-BTN_BIN       EQU 0001H
-BTN_DEC       EQU 0002H
-BTN_FRC       EQU 0003H
-BTN_MS        EQU 0004H
-BTN_MR        EQU 0005H
-BTN_MC        EQU 0006H
+BTN_MS        EQU 0000H
+BTN_MR        EQU 0001H
+BTN_MC        EQU 0002H
+BTN_DEC       EQU 0003H
+BTN_HEX       EQU 0004H
+BTN_POW       EQU 0005H
+BTN_DEL       EQU 0006H
               
 ;ROW 13       
 BTN_7         EQU 0100H
 BTN_8         EQU 0101H
 BTN_9         EQU 0102H
-BTN_DIV       EQU 0103H
-BTN_MOD       EQU 0104H
-BTN_POW       EQU 0105H
-BTN_CLR       EQU 0106H
+BTN_BIN       EQU 0103H
+BTN_FRC       EQU 0104H
+BTN_MOD       EQU 0105H
+BTN_CE        EQU 0106H
               
 ;ROW 15       
 BTN_4         EQU 0200H
 BTN_5         EQU 0201H
 BTN_6         EQU 0202H
-BTN_MUL       EQU 0203H
-BTN_SQR       EQU 0204H
-BTN_ABS       EQU 0205H
-BTN_CE        EQU 0206H
+BTN_ADD       EQU 0203H
+BTN_PCT       EQU 0204H
+BTN_SQR       EQU 0205H
+BTN_CLR       EQU 0206H
 
 ;ROW 17       
 BTN_1         EQU 0300H
 BTN_2         EQU 0301H
 BTN_3         EQU 0302H
 BTN_SUB       EQU 0303H
-BTN_NEG       EQU 0304H
-BTN_DEL       EQU 0305H
-BTN_PCT       EQU 0306H
+BTN_DIV       EQU 0304H
+BTN_NEG       EQU 0305H
+BTN_ABS       EQU 0306H
 
 ;ROW 19
 BTN_00        EQU 0400H
 BTN_0         EQU 0401H
 BTN_DOT       EQU 0402H
 BTN_SIGN      EQU 0403H
-BTN_ADD       EQU 0404H
+BTN_MUL       EQU 0404H
 BTN_EQ        EQU 0405H
 
 TOTAL_BUTTONS EQU 34
@@ -84,47 +84,47 @@ TOTAL_BUTTONS EQU 34
         MSG_INITIAL_VAL  DB '0.00$'
 
         ;ROW 11
-        LBL_HEX          DB '[HEX]$'
-        LBL_BIN          DB '[BIN]$'
-        LBL_DEC          DB '[DEC]$'
-        LBL_FRC          DB '[FRC]$'
         LBL_MS           DB '[MS ]$'
         LBL_MR           DB '[MR ]$'
         LBL_MC           DB '[MC ]$'
+        LBL_DEC          DB '[DEC]$'
+        LBL_HEX          DB '[HEX]$'
+        LBL_POW          DB '[POW]$'
+        LBL_DEL          DB '[DEL]$'
 
         ;ROW 13
         LBL_7            DB '[ 7 ]$'
         LBL_8            DB '[ 8 ]$'
         LBL_9            DB '[ 9 ]$'
-        LBL_DIV          DB '[ / ]$'
+        LBL_BIN          DB '[BIN]$'
+        LBL_FRC          DB '[FRC]$'
         LBL_MOD          DB '[MOD]$'
-        LBL_POW          DB '[POW]$'
-        LBL_CLR          DB '[CLR]$'
+        LBL_CE           DB '[CE ]$'
 
         ;ROW 15
         LBL_4            DB '[ 4 ]$'
         LBL_5            DB '[ 5 ]$'
         LBL_6            DB '[ 6 ]$'
-        LBL_MUL          DB '[ * ]$'
+        LBL_ADD          DB '[ + ]$'
+        LBL_PCT          DB '[ % ]$'
         LBL_SQR          DB '[SQR]$'
-        LBL_ABS          DB '[ABS]$'
-        LBL_CE           DB '[CE ]$'
+        LBL_CLR          DB '[CLR]$'
 
         ;ROW 17
         LBL_1            DB '[ 1 ]$'
         LBL_2            DB '[ 2 ]$'
         LBL_3            DB '[ 3 ]$'
         LBL_SUB          DB '[ - ]$'
+        LBL_DIV          DB '[ / ]$'
         LBL_NEG          DB '[NEG]$'
-        LBL_DEL          DB '[DEL]$'
-        LBL_PCT          DB '[ % ]$'
+        LBL_ABS          DB '[ABS]$'
 
         ;ROW 19
-        LBL_SIGN         DB '[+/-]$'
-        LBL_0            DB '[ 0 ]$'
         LBL_00           DB '[00 ]$'
+        LBL_0            DB '[ 0 ]$'
         LBL_DOT          DB '[ . ]$'
-        LBL_ADD          DB '[ + ]$'
+        LBL_SIGN         DB '[+/-]$'
+        LBL_MUL          DB '[ * ]$'
         LBL_EQ           DB '[     =     ]$'
        
         MSG_UP           DB 'UP $'
@@ -139,40 +139,40 @@ TOTAL_BUTTONS EQU 34
 
         ;ROW 11
 
-        DW BTN_HEX  
+        DW BTN_MS  
         DB 11, 13  
-        DW OFFSET LBL_HEX  
-        DB 8BH
+        DW OFFSET LBL_MS  
+        DB 8DH
 
-        DW BTN_BIN  
+        DW BTN_MR  
         DB 11, 21  
-        DW OFFSET LBL_BIN  
-        DB 8BH
+        DW OFFSET LBL_MR  
+        DB 8DH
+
+        DW BTN_MC  
+        DB 11, 29  
+        DW OFFSET LBL_MC  
+        DB 8DH
 
         DW BTN_DEC  
-        DB 11, 29  
-        DW OFFSET LBL_DEC  
-        DB 8BH
-
-        DW BTN_FRC  
         DB 11, 37  
-        DW OFFSET LBL_FRC  
-        DB 8BH
+        DW OFFSET LBL_DEC  
+        DB 8AH
 
-        DW BTN_MS   
+        DW BTN_HEX   
         DB 11, 45  
-        DW OFFSET LBL_MS   
-        DB 8BH
+        DW OFFSET LBL_HEX   
+        DB 8AH
 
-        DW BTN_MR   
+        DW BTN_POW   
         DB 11, 53  
-        DW OFFSET LBL_MR   
+        DW OFFSET LBL_POW   
         DB 8BH
 
-        DW BTN_MC   
+        DW BTN_DEL   
         DB 11, 61  
-        DW OFFSET LBL_MC   
-        DB 8BH
+        DW OFFSET LBL_DEL   
+        DB 8CH
 
 
         ;ROW 13 
@@ -192,25 +192,25 @@ TOTAL_BUTTONS EQU 34
         DW OFFSET LBL_9    
         DB 8FH
 
-        DW BTN_DIV  
+        DW BTN_BIN  
         DB 13, 37  
-        DW OFFSET LBL_DIV  
-        DB 8BH
+        DW OFFSET LBL_BIN  
+        DB 8AH
+
+        DW BTN_FRC  
+        DB 13, 45  
+        DW OFFSET LBL_FRC  
+        DB 8AH
 
         DW BTN_MOD  
-        DB 13, 45  
+        DB 13, 53  
         DW OFFSET LBL_MOD  
         DB 8BH
 
-        DW BTN_POW  
-        DB 13, 53  
-        DW OFFSET LBL_POW  
-        DB 8BH
-
-        DW BTN_CLR  
+        DW BTN_CE  
         DB 13, 61  
-        DW OFFSET LBL_CLR  
-        DB 8BH
+        DW OFFSET LBL_CE  
+        DB 8CH
 
         
         ; ROW 15
@@ -230,25 +230,25 @@ TOTAL_BUTTONS EQU 34
         DW OFFSET LBL_6    
         DB 8FH
 
-        DW BTN_MUL  
+        DW BTN_ADD  
         DB 15, 37  
-        DW OFFSET LBL_MUL  
-        DB 8BH
+        DW OFFSET LBL_ADD  
+        DB 8EH
+
+        DW BTN_PCT  
+        DB 15, 45  
+        DW OFFSET LBL_PCT  
+        DB 8EH
 
         DW BTN_SQR  
-        DB 15, 45  
+        DB 15, 53  
         DW OFFSET LBL_SQR  
         DB 8BH
 
-        DW BTN_ABS  
-        DB 15, 53  
-        DW OFFSET LBL_ABS  
-        DB 8BH
-
-        DW BTN_CE   
+        DW BTN_CLR   
         DB 15, 61  
-        DW OFFSET LBL_CE   
-        DB 8BH
+        DW OFFSET LBL_CLR   
+        DB 8CH
 
         
         ;ROW 17
@@ -271,21 +271,21 @@ TOTAL_BUTTONS EQU 34
         DW BTN_SUB  
         DB 17, 37  
         DW OFFSET LBL_SUB  
-        DB 8BH
+        DB 8EH
+
+        DW BTN_DIV  
+        DB 17, 45  
+        DW OFFSET LBL_DIV  
+        DB 8EH
 
         DW BTN_NEG  
-        DB 17, 45  
+        DB 17, 53  
         DW OFFSET LBL_NEG  
         DB 8BH
 
-        DW BTN_DEL  
-        DB 17, 53  
-        DW OFFSET LBL_DEL  
-        DB 8BH
-
-        DW BTN_PCT  
+        DW BTN_ABS  
         DB 17, 61  
-        DW OFFSET LBL_PCT  
+        DW OFFSET LBL_ABS  
         DB 8BH
 
         
@@ -311,10 +311,10 @@ TOTAL_BUTTONS EQU 34
         DW OFFSET LBL_SIGN 
         DB 8BH
 
-        DW BTN_ADD  
+        DW BTN_MUL  
         DB 19, 45  
-        DW OFFSET LBL_ADD  
-        DB 8BH
+        DW OFFSET LBL_MUL 
+        DB 8EH
 
         DW BTN_EQ   
         DB 19, 53  
@@ -717,7 +717,7 @@ DrawDisplay PROC
 
         ;INITIAL DISPLAY
         MOV DH, DISP_TOP+1
-        MOV DL, DISP_RIGHT-5
+        MOV DL, DISP_RIGHT-4
         CALL SetCursor
         LEA SI, MSG_INITIAL_VAL
         MOV BL, 8FH
@@ -766,6 +766,7 @@ DrawButton ENDP
 DrawButtons PROC
         PUSH CX
         PUSH SI
+        PUSH DX
 
         LEA SI, BTN_TABLE
         MOV CX, TOTAL_BUTTONS
@@ -774,6 +775,11 @@ DrawButtonsLoop:
         ADD SI, 7
         LOOP DrawButtonsLoop
 
+        MOV DH, 24
+        MOV DL, 79
+        CALL SetCursor
+
+        POP DX
         POP SI
         POP CX
         RET
@@ -2282,6 +2288,11 @@ LenDone:
         CALL PrintStringAttr
 UpdDisp_Exit:
         Call DrawHintLine
+
+        MOV DH, 24
+        MOV DL, 79
+        CALL SetCursor
+
         POP DI
         POP SI
         POP DX
