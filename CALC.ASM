@@ -350,6 +350,55 @@ TOTAL_BUTTONS EQU 34
         temp_y_low          DW 0       ; FOR MULTIPLY AND DIVIDE
         temp_y_high         DW 0       ; FOR MULTIPLY AND DIVIDE
 
+
+        HELP_PREV        DB '< PREV$'
+        HELP_NEXT        DB 'NEXT >$'
+        HELP_ESC         DB 'ESC - RETURN TO CALCULATOR$'
+
+        HELP_INFO1       DB 'Max 8 digits | 2 decimal places$'
+        HELP_INFO2       DB 'Range: -21474836.48 to 21474836.47$'
+        HELP_INFO3       DB '[M] = memory stored          [OP] = pending operation$'
+        HELP_INFO4       DB '[ARROWS] navigate buttons   [SPACE] click selected button$'
+
+        HELP_SEP         DB '------------------------------------------------------------$'
+
+        ; PAGE 1
+        HELP_P1_HEAD     DB 'PAGE 1 OF 3 - GENERAL OPERATIONS$'
+        HELP_P1_L1       DB ' [ + ]          +              Addition$'
+        HELP_P1_L2       DB ' [ - ]          -              Subtraction$'
+        HELP_P1_L3       DB ' [ * ]          *              Multiplication$'
+        HELP_P1_L4       DB ' [ / ]          /              Division$'
+        HELP_P1_L5       DB ' [ % ]          %              Percent$'
+        HELP_P1_L6       DB ' [POW]          ^              Power / Exponentiation$'
+        HELP_P1_L7       DB ' [     =     ]  = or Enter     Calculate Result$'
+        HELP_P1_L8       DB ' [ . ]          .              Decimal Point$'
+        HELP_P1_L9       DB ' [DEL]          Backspace      Delete Last Digit$'
+        HELP_P1_L10      DB ' [ 0 ]-[ 9 ]    0 to 9         Input Digits$'
+
+        ; PAGE 2
+        HELP_P2_HEAD     DB 'PAGE 2 OF 3 - SPECIAL FUNCTIONS$'
+        HELP_P2_L1       DB ' [SQR]          Q              Square Root$'
+        HELP_P2_L2       DB ' [NEG]          N              Arithmetic Negate (flip sign)$'
+        HELP_P2_L3       DB ' [ABS]          A              Absolute Value$'
+        HELP_P2_L4       DB ' [+/-]          S              Toggle Sign of Current Input$'
+        HELP_P2_L5       DB ' [MOD]          M              Modulo (remainder)$'
+        HELP_P2_L6       DB ' [CE ]          E              Clear Current Entry$'
+        HELP_P2_L7       DB ' [CLR]          C              Clear All (full reset)$'
+        HELP_P2_L8       DB ' [DEL]          Backspace      Delete Last Digit$'
+
+        ; PAGE 3 
+        HELP_P3_HEAD     DB 'PAGE 3 OF 3 - MEMORY AND MODES$'
+        HELP_P3_L1       DB ' [MS ]          O              Memory Store$'
+        HELP_P3_L2       DB ' [MR ]          R              Memory Recall$'
+        HELP_P3_L3       DB ' [MC ]          V              Memory Clear$'
+        HELP_P3_L4       DB ' [DEC]          D              Switch to Decimal Mode$'
+        HELP_P3_L5       DB ' [HEX]          X              Switch to Hex Mode$'
+        HELP_P3_L6       DB ' [BIN]          B              Switch to Binary Mode$'
+        HELP_P3_L7       DB ' [FRC]          F              Toggle Fraction Display$'
+
+        help_page        DB 0
+
+
 ;-----------------------------------------------------------------------------
 ;CODE SEGMENT
 ;----------------------------------------------------------------------------
@@ -958,6 +1007,14 @@ NotBackspace:
         RET
 NotPlusKey:
 
+        CMP AL, '='                     
+        JNE NotEQKey
+        MOV selected_button, BTN_EQ
+        CALL DrawButtons
+        CALL ProcessEquals
+        RET
+NotEQKey:
+
         CMP AL, '-'                     
         JNE NotMinusKey
         MOV selected_button, BTN_SUB
@@ -1032,7 +1089,7 @@ NotClearEntry:
         JNE NotHelp
 DoHelp:
         
-        ; CALL HELP SCREEN PROC
+        CALL ShowHelpScreen
         RET
 NotHelp:
 
@@ -1195,7 +1252,7 @@ NotDotKey:
         JA SkipNormalChar
 
         PUSH AX
-        
+
         CMP AL, '0'
         JNE NotDigit0
         MOV AX, BTN_0
@@ -3161,6 +3218,382 @@ ProcEqDone:
         RET
 ProcessEquals ENDP
 
+;----------------------------------------------------------------------------
+;HELP SCREEN
+;----------------------------------------------------------------------------
+DrawHelpBottom PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        MOV DH, 16
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_SEP
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        MOV DH, 17
+        MOV DL, 11
+        CALL SetCursor
+        MOV BL, 87H
+        CMP help_page, 0
+        JE DrawPrev
+        MOV BL, 8FH
+DrawPrev:
+        LEA SI, HELP_PREV
+        CALL PrintStringAttr
+
+        MOV DH, 17
+        MOV DL, 27
+        CALL SetCursor
+        LEA SI, HELP_ESC
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        MOV DH, 17
+        MOV DL, 63
+        CALL SetCursor
+        MOV BL, 87H
+        CMP help_page, 2
+        JE DrawNext
+        MOV BL, 8FH
+DrawNext:
+        LEA SI, HELP_NEXT
+        CALL PrintStringAttr
+
+        MOV DH, 18
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_SEP
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        ; LINE 1
+        MOV DH, 19
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_INFO1
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        ; LINE 2
+        MOV DH, 20
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_INFO2
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        ; LINE 3
+        MOV DH, 21
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_INFO3
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        ; LINE 4
+        MOV DH, 22
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_INFO4
+        MOV BL, 87H
+        CALL PrintStringAttr
+
+        MOV DH, 24
+        MOV DL, 79
+        CALL SetCursor
+
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DrawHelpBottom ENDP
+
+
+DrawHelpTop PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+        PUSH SI
+
+        MOV DH, 1
+ClearHelpTopLoop:
+        CMP DH, 16
+        JGE ClearHelpTopDone
+        MOV DL, 0
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 80H
+        MOV CX, 80
+        CALL PrintCharAttr
+        INC DH
+        JMP ClearHelpTopLoop
+ClearHelpTopDone:
+
+        MOV DH, 2
+        MOV DL, 23
+        CALL SetCursor
+        MOV BL, 8BH
+        LEA SI, HELP_P1_HEAD
+        CMP help_page, 0
+        JE PrintHelpHead
+        LEA SI, HELP_P2_HEAD
+        CMP help_page, 1
+        JE PrintHelpHead
+        LEA SI, HELP_P3_HEAD
+PrintHelpHead:
+        CALL PrintStringAttr
+
+        MOV DH, 3
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_SEP
+        MOV BL, 8BH
+        CALL PrintStringAttr
+
+        ; SELECT PAGE
+        CMP help_page, 0
+        JE PrintPage1
+        CMP help_page, 1
+        JE PrintPage2_JUMP
+        JMP PrintPage3
+PrintPage2_JUMP:
+
+        JMP PrintPage2
+PrintPage1:
+        MOV DH, 5
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L1
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DH, 6
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L2
+        CALL PrintStringAttr
+
+        MOV DH, 7
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L3
+        CALL PrintStringAttr
+
+        MOV DH, 8
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L4
+        CALL PrintStringAttr
+
+        MOV DH, 9
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L5
+        CALL PrintStringAttr
+
+        MOV DH, 10
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L6
+        CALL PrintStringAttr
+
+        MOV DH, 11
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L7
+        CALL PrintStringAttr
+
+        MOV DH, 12
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L8
+        CALL PrintStringAttr
+
+        MOV DH, 13
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L9
+        CALL PrintStringAttr
+
+        MOV DH, 14
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P1_L10
+        CALL PrintStringAttr
+
+        JMP HelpTopDone
+PrintPage2:
+        MOV DH, 5
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L1
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DH, 6
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L2
+        CALL PrintStringAttr
+
+        MOV DH, 7
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L3
+        CALL PrintStringAttr
+
+        MOV DH, 8
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L4
+        CALL PrintStringAttr
+
+        MOV DH, 9
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L5
+        CALL PrintStringAttr
+
+        MOV DH, 10
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L6
+        CALL PrintStringAttr
+
+        MOV DH, 11
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L7
+        CALL PrintStringAttr
+
+        MOV DH, 12
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P2_L8
+        CALL PrintStringAttr
+
+        JMP HelpTopDone
+PrintPage3:
+        MOV DH, 5
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L1
+        MOV BL, 8FH
+        CALL PrintStringAttr
+
+        MOV DH, 6
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L2
+        CALL PrintStringAttr
+
+        MOV DH, 7
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L3
+        CALL PrintStringAttr
+
+        MOV DH, 9
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L4
+        CALL PrintStringAttr
+
+        MOV DH, 10
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L5
+        CALL PrintStringAttr
+
+        MOV DH, 11
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L6
+        CALL PrintStringAttr
+
+        MOV DH, 12
+        MOV DL, 11
+        CALL SetCursor
+        LEA SI, HELP_P3_L7
+        CALL PrintStringAttr
+HelpTopDone:
+
+        MOV DH, 24
+        MOV DL, 79
+        CALL SetCursor
+
+        POP SI
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DrawHelpTop ENDP
+
+ShowHelpScreen PROC
+        PUSH AX
+        PUSH BX
+        PUSH DX
+        PUSH SI
+        
+        MOV help_page, 0
+        
+        CALL ClearScreen
+        
+        CALL DrawHelpTop
+        CALL DrawHelpBottom
+HelpLoop:
+        CALL ReadKEY
+        
+        CMP AL, 1BH             ;EXIT
+        JE HelpExit
+        
+        CMP AL, 00H
+        JE HelpExtended
+        CMP AL, 0E0H
+        JNE HelpLoop
+HelpExtended:
+        
+        CMP AH, 4BH
+        JNE NotHelpLeft
+        CMP help_page, 0
+        JE HelpLoop                     ; ALREADY ON FIRST PAGE
+        DEC help_page
+        CALL DrawHelpTop
+        CALL DrawHelpBottom
+        JMP HelpLoop
+NotHelpLeft:
+        
+        CMP AH, 4DH
+        JNE HelpLoop
+        CMP help_page, 2
+        JE HelpLoop                     ; ALREADY ON LAST PAGE
+        INC help_page
+        CALL DrawHelpTop
+        CALL DrawHelpBottom
+        JMP HelpLoop
+HelpExit:
+        
+        CALL ClearScreen
+        CALL DrawFrame
+        CALL DrawTitle
+        CALL DrawDisplay
+        CALL ClearAll
+        CALL DrawButtons
+        POP SI
+        POP DX
+        POP BX
+        POP AX
+        RET
+ShowHelpScreen ENDP
 ;----------------------------------------------------------------------------
 ;ENTRY POINT
 ;----------------------------------------------------------------------------
