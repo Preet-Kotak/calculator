@@ -337,6 +337,9 @@ TOTAL_BUTTONS EQU 34
         error_flag          DB 0       ; OVERFLOW/DIV-BY-ZERO ERROR FLAG -> 1
         accumulator_low     DW 0       ; LOWER 16 BIT OF ACCUMULATOR 
         accumulator_high    DW 0       ; UPPER 16 BIT OF ACCUMULATOR
+        memory_low          DW 0
+        memory_high         DW 0
+        memory_active       DB 0
         pending_operator    DW 0       ; BUTTON ID OF PENDING OPERATION
         last_operator       DW 0       ; BUTTON ID OF LAST OPERATION
         last_operand_low    DW 0       ; LOWER 16 BIT OF LAST OPERAND
@@ -651,6 +654,7 @@ DrawDisplay PROC
         PUSH SI
 
         CALL DrawOperatorIndicator
+        CALL DrawMemoryIndicator
 
         ; TOP BORDER
         MOV DH, DISP_TOP
@@ -849,6 +853,21 @@ NotABSBtn:
         CALL ProcessSQR
         JMP ActDone
 NotSQRBtn:
+        CMP selected_button, BTN_MS
+        JNE NotMSBtn
+        CALL ProcessMS
+        JMP ActDone
+NotMSBtn:
+        CMP selected_button, BTN_MR
+        JNE NotMRBtn
+        CALL ProcessMR
+        JMP ActDone
+NotMRBtn:
+        CMP selected_button, BTN_MC
+        JNE NotMCBtn
+        CALL ProcessMC
+        JMP ActDone
+NotMCBtn:
         CMP selected_button, BTN_PCT
         JNE NotPCTBtn
         CALL ProcessPCT
@@ -2089,6 +2108,7 @@ UpdateDisplay PROC
         PUSH DI
 
         CALL DrawOperatorIndicator
+        CALL DrawMemoryIndicator
 
         ; ERRORS
         CMP error_flag, 0
@@ -2387,6 +2407,49 @@ OpIndDone:
         RET 
 DrawOperatorIndicator ENDP
 
+DrawMemoryIndicator PROC
+        PUSH AX
+        PUSH BX
+        PUSH CX
+        PUSH DX
+
+        MOV DH, 8
+        MOV DL, 20
+        CALL SetCursor
+
+        CMP memory_active, 1
+        JE  PrintMemActive
+        
+        MOV AL, ' '
+        MOV BL, 8FH
+        MOV CX, 3
+        CALL PrintCharAttr
+        JMP DrawMemDone
+
+PrintMemActive:
+        MOV AL, '['
+        MOV BL, 8Eh
+        MOV CX, 1
+        CALL PrintCharAttr
+        
+        INC DL
+        CALL SetCursor
+        MOV AL, 'M'
+        CALL PrintCharAttr
+        
+        INC DL
+        CALL SetCursor
+        MOV AL, ']'
+        CALL PrintCharAttr
+
+DrawMemDone:
+        POP DX
+        POP CX
+        POP BX
+        POP AX
+        RET
+DrawMemoryIndicator ENDP
+
 ApplyOperator PROC
         PUSH AX
         PUSH SI
@@ -2613,6 +2676,92 @@ ProcessSQRDone:
         POP AX
         RET
 ProcessSQR ENDP
+
+
+ProcessMS PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+
+        CMP error_flag, 0
+        JNE ProcessMSDone
+
+        CMP input_active, 1
+        JNE DoMsCopy
+        CMP input_negative, 1
+        JNE DoMsCopy
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+DoMsCopy:
+        LEA SI, current_input_low
+        LEA DI, memory_low
+        CALL Copy32
+
+        MOV memory_active, 1
+        CALL UpdateDisplay
+ProcessMSDone:
+        POP DI
+        POP SI
+        POP AX
+        RET
+ProcessMS ENDP
+
+ProcessMR PROC
+        PUSH AX
+        PUSH SI
+        PUSH DI
+
+        CMP error_flag, 0
+        JNE ProcessMRDone
+
+        CMP memory_active, 1
+        JE  DoRecallMemory
+
+        MOV current_input_low, 0
+        MOV current_input_high, 0
+        JMP MR_Finish
+
+DoRecallMemory:
+        LEA SI, memory_low
+        LEA DI, current_input_low
+        CALL Copy32
+
+MR_Finish:
+        MOV input_negative, 0
+        MOV decimal_entered, 0
+        MOV decimal_count, 0
+        MOV digit_count, 0
+
+        CMP pending_operator, 0
+        JE  MR_NoOp
+        MOV input_active, 1
+        JMP UpdateDisplayAfterMr
+
+MR_NoOp:
+        MOV input_active, 0
+        LEA SI, current_input_low
+        LEA DI, accumulator_low
+        CALL Copy32
+
+UpdateDisplayAfterMr:
+        CALL UpdateDisplay
+ProcessMRDone:
+        POP DI
+        POP SI
+        POP AX
+        RET
+ProcessMR ENDP
+
+ProcessMC PROC
+        PUSH AX
+        MOV memory_low, 0
+        MOV memory_high, 0
+        MOV memory_active, 0
+        CALL UpdateDisplay
+        POP AX
+        RET
+ProcessMC ENDP
 
 
 ProcessPCT PROC
