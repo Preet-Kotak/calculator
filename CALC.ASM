@@ -1498,7 +1498,6 @@ HandleInputOverflowPop:
 HandleInputOverflow:
         MOV error_flag, 1
         LEA SI, MSG_ERR_OVERFLOW
-        CALL ShowTempError
         JMP AddDigitDone
 AddFractionalDigit:
 
