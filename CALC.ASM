@@ -70,7 +70,6 @@ TOTAL_BUTTONS EQU 34
 ;----------------------------------------------------------------------------
 .DATA
         
-        MSG_ERR_DIGITS   DB 'MAX 8 DIGITS ALLOWED$'
         MSG_ERR_DECIMAL  DB 'ONLY ONE . ALLOWED$'
         MSG_ERR_PLACES   DB 'MAX 2 DEC PLACES$'
         MSG_ERR_OVERFLOW DB 'ERROR: OVERFLOW$'
@@ -330,7 +329,7 @@ TOTAL_BUTTONS EQU 34
         decimal_count       DB 0       ; DIGITS AFTER DECIMAL
         digit_count         DB 0       ; DIGITS BEFORE DECIMAL
 
-        display_buffer      DB 16 DUP('$')
+        display_buffer      DB 40 DUP('$')
 
         mod_temp_low        DW 0
         mod_temp_high       DW 0
@@ -350,6 +349,9 @@ TOTAL_BUTTONS EQU 34
         temp_y_low          DW 0       ; FOR MULTIPLY AND DIVIDE
         temp_y_high         DW 0       ; FOR MULTIPLY AND DIVIDE
 
+        display_base        DB 10
+        frac_only           DB 0
+        base_view_mode      DB 0
 
         HELP_PREV        DB '< PREV$'
         HELP_NEXT        DB 'NEXT >$'
@@ -928,6 +930,26 @@ NotMCBtn:
         CALL ProcessPCT
         JMP ActDone
 NotPCTBtn:
+        CMP selected_button, BTN_HEX
+        JNE NotHEXBtn
+        CALL ProcessHEX
+        JMP ActDone
+NotHEXBtn:
+        CMP selected_button, BTN_BIN
+        JNE NotBINBtn
+        CALL ProcessBIN
+        JMP ActDone
+NotBINBtn:
+        CMP selected_button, BTN_DEC
+        JNE NotDECBtn
+        CALL ProcessDEC
+        JMP ActDone
+NotDECBtn:
+        CMP selected_button, BTN_FRC
+        JNE NotFRCBtn
+        CALL ProcessFRC
+        JMP ActDone
+NotFRCBtn:
         CMP selected_button, BTN_ADD
         JE OpBtn
         CMP selected_button, BTN_SUB
@@ -975,6 +997,40 @@ ActDone:
 ActivateSelectedButton ENDP
 
 HandleNormalChar PROC
+
+        CMP base_view_mode, 1
+        JNE HandleNormalChar_Continue
+        CMP AL, '0'
+        JB CheckClearInBaseMode
+        CMP AL, '9'
+        JBE HandleNormalChar_Continue
+CheckClearInBaseMode:
+        CMP AL, 'c'
+        JE HandleNormalChar_Continue
+        CMP AL, 'C'
+        JE HandleNormalChar_Continue
+        CMP AL, 'e'
+        JE HandleNormalChar_Continue
+        CMP AL, 'E'
+        JE HandleNormalChar_Continue
+        CMP AL, 'd'
+        JE HandleNormalChar_Continue
+        CMP AL, 'D'
+        JE HandleNormalChar_Continue
+        CMP AL, 'x'
+        JE HandleNormalChar_Continue
+        CMP AL, 'X'
+        JE HandleNormalChar_Continue
+        CMP AL, 'b'
+        JE HandleNormalChar_Continue
+        CMP AL, 'B'
+        JE HandleNormalChar_Continue
+        CMP AL, 'f'
+        JE HandleNormalChar_Continue
+        CMP AL, 'F'
+        JE HandleNormalChar_Continue
+        RET
+HandleNormalChar_Continue:
 
         CMP AL, 20H                     ;       SPACE BAR FOR BUTTON SELECTION
         JNE NotSpaceKey
@@ -1198,7 +1254,7 @@ DoDEC:
  
         MOV selected_button, BTN_DEC
         CALL DrawButtons
-        ;
+        CALL ProcessDEC
         RET
 NotDEC:
 
@@ -1210,7 +1266,7 @@ DoHEX:
  
         MOV selected_button, BTN_HEX
         CALL DrawButtons
-        ;
+        CALL ProcessHEX
         RET
 NotHEX:
 
@@ -1222,7 +1278,7 @@ DoBIN:
  
         MOV selected_button, BTN_BIN
         CALL DrawButtons
-        ;
+        CALL ProcessBIN
         RET
 NotBIN:
 
@@ -1234,7 +1290,7 @@ DoFRC:
  
         MOV selected_button, BTN_FRC
         CALL DrawButtons
-        ;
+        CALL ProcessFRC
         RET
 NotFRC:
 
@@ -1384,6 +1440,15 @@ AddDigit PROC
         PUSH DX
         PUSH SI
 
+        CMP base_view_mode, 1
+        JNE AddDigit_ErrorChecker
+        PUSH AX
+        CALL ClearAll
+        MOV base_view_mode, 0
+        MOV display_base, 10
+        MOV frac_only, 0
+        POP AX
+AddDigit_ErrorChecker:
         CMP error_flag, 0
         JE  AddDigit_NoError
         PUSH AX             
@@ -1408,15 +1473,13 @@ DigitActive:
         CMP decimal_entered, 0
         JNE AddFractionalDigit
 
-        CMP digit_count, 8
-        JB AllowIntDigit
-        POP CX             
-        LEA SI, MSG_ERR_DIGITS
-        CALL ShowTempError  
-        JMP AddDigitDone
+        JMP AllowIntDigit
+        
 AllowIntDigit:
         LEA SI, current_input_low
         CALL Mul32By10
+        CMP error_flag, 1
+        JE HandleInputOverflowPop
         
         POP CX                 ; CX = numeric digit value (0..9)
         MOV AX, CX
@@ -1425,7 +1488,17 @@ AllowIntDigit:
         
         ADD current_input_low, AX
         ADC current_input_high, DX
+        JS HandleInputOverflow
+        
         INC digit_count
+        JMP AddDigitDone
+        
+HandleInputOverflowPop:
+        POP CX
+HandleInputOverflow:
+        MOV error_flag, 1
+        LEA SI, MSG_ERR_OVERFLOW
+        CALL ShowTempError
         JMP AddDigitDone
 AddFractionalDigit:
 
@@ -1470,6 +1543,14 @@ AddDigit ENDP
 AddDecimalPoint PROC
         PUSH AX
         PUSH SI
+
+        CMP base_view_mode, 1
+        JNE AddDec_CheckError
+        CALL ClearAll
+        MOV base_view_mode, 0
+        MOV display_base, 10
+        MOV frac_only, 0
+AddDec_CheckError:
 
         CMP error_flag, 0
         JE  AddDecimal_NoError
@@ -1532,6 +1613,9 @@ DeleteDigit PROC
         PUSH DX
         PUSH SI
         PUSH DI
+        
+        CMP base_view_mode, 1
+        JE  DelDone
 
         CMP input_active, 1
         JE StartDel
@@ -1593,6 +1677,9 @@ ClearEntry PROC
         MOV decimal_entered, 0
         MOV decimal_count, 0
         MOV digit_count, 0
+        MOV base_view_mode, 0
+        MOV display_base, 10
+        MOV frac_only, 0
         
         CALL UpdateDisplay  
         RET
@@ -1608,9 +1695,11 @@ ClearAll PROC
         MOV last_operand_low, 0
         MOV last_operand_high, 0
         MOV error_flag, 0
+        MOV base_view_mode, 0
+        MOV display_base, 10
+        MOV frac_only, 0
 
         CALL UpdateDisplay
-        
         RET
 ClearAll ENDP
 
@@ -2491,6 +2580,13 @@ UpdDisp_ErrLenDone:
         JMP UpdDisp_Exit
 
 UpDateDisplayNormal:
+
+        CMP base_view_mode, 1
+        JE  UpDateDisplayBaseConv_JUMP
+        JMP UpDateDisplayDec
+UpDateDisplayBaseConv_JUMP:
+        JMP UpDateDisplayBaseConv
+UpDateDisplayDec:
         MOV AX, current_input_low
         MOV DX, current_input_high
 
@@ -2609,6 +2705,195 @@ LenLoop:
 LenDone:
 
         ; TO RIGHT ALIGN
+        MOV DL, 66
+        SUB DL, CL
+        MOV DH, 8
+        CALL SetCursor
+        
+        LEA SI, display_buffer
+        MOV BL, 8FH
+        CALL PrintStringAttr
+        JMP UpdDisp_Exit
+
+UpDateDisplayBaseConv:
+
+        MOV AX, current_input_low
+        MOV DX, current_input_high
+
+        XOR CL, CL
+        
+        TEST DX, 8000H
+        JZ BaseConv_DoUnsignedDiv
+        MOV CL, 1
+        
+        NOT AX
+        NOT DX
+        ADD AX, 1
+        ADC DX, 0
+BaseConv_DoUnsignedDiv:
+        PUSH CX
+
+        MOV DI, AX               
+        MOV AX, DX
+        XOR DX, DX
+        MOV CX, 100
+        DIV CX
+        MOV SI, AX               
+        MOV AX, DI
+        DIV CX                   
+        
+        POP CX 
+
+        LEA DI, display_buffer
+        PUSH DI
+        PUSH CX
+        MOV CX, 40
+BaseConv_ClearBuf:
+        MOV BYTE PTR [DI], '$'
+        INC DI
+        LOOP BaseConv_ClearBuf
+        POP CX
+        POP DI
+
+        CMP CL, 1
+        JNE BaseConv_NoSign
+
+        CMP frac_only, 1
+        JE BaseConv_SignFrac
+
+        CMP SI, 0
+        JNE BaseConv_WriteSign
+
+        CMP AX, 0
+        JNE BaseConv_WriteSign
+
+        JMP BaseConv_NoSign
+BaseConv_SignFrac:
+        CMP DX, 0
+        JE BaseConv_NoSign
+BaseConv_WriteSign:
+
+        MOV BYTE PTR [DI], '-'
+        INC DI
+BaseConv_NoSign:
+
+        CMP frac_only, 1
+        JE  BaseConv_FracOnly
+
+        XOR CH, CH
+        MOV CL, 0
+
+        CMP SI, 0
+        JNE BaseConv_IntLoop
+        CMP AX, 0
+        JNE BaseConv_IntLoop
+        PUSH WORD PTR '0'
+        INC CL
+        JMP BaseConv_PopInt
+
+BaseConv_IntLoop:
+        CMP SI, 0
+        JNE BaseConv_IntDiv
+        CMP AX, 0
+        JE  BaseConv_PopInt
+BaseConv_IntDiv:
+        PUSH AX
+        MOV AX, SI
+        XOR DX, DX
+        XOR BH, BH
+        MOV BL, display_base
+        DIV BX
+        MOV SI, AX
+        POP AX
+        DIV BX
+
+         CMP DX, 10
+        JB BaseConv_DigitUnder10
+        ADD DL, 'A' - 10
+        JMP BaseConv_PushDigit
+BaseConv_DigitUnder10:
+        ADD DL, '0'
+BaseConv_PushDigit:
+        PUSH DX
+        INC CL
+        JMP BaseConv_IntLoop
+
+        BaseConv_PopInt:
+        XOR CH, CH
+BaseConv_PopLoop:
+        POP DX
+        MOV [DI], DL
+        INC DI
+        LOOP BaseConv_PopLoop
+
+        JMP BaseConv_DoneFormatting
+BaseConv_FracOnly:
+        MOV BYTE PTR [DI], '0'
+        INC DI
+        MOV BYTE PTR [DI], '.'
+        INC DI
+
+        MOV AX, DX               
+        MOV CL, 0       
+        
+        CMP AX, 0
+        JNE BaseConv_FracLoop
+        MOV BYTE PTR [DI], '0'
+        INC DI
+        MOV BYTE PTR [DI], '0'
+        INC DI
+        JMP BaseConv_DoneFormatting
+
+BaseConv_FracLoop:
+        CMP CL, 8
+        JAE BaseConv_DoneFormatting
+        CMP AX, 0
+        JE  BaseConv_DoneFormatting
+
+        XOR BH, BH
+        MOV BL, display_base
+        MUL BX
+
+        MOV DX, 0
+        MOV BX, 100
+        DIV BX
+
+        CMP AX, 10
+        JB BaseConv_FracDigitUnder10
+        ADD AL, 'A' - 10
+        JMP BaseConv_WriteFracDigit
+BaseConv_FracDigitUnder10:
+        ADD AL, '0'
+BaseConv_WriteFracDigit:
+        MOV [DI], AL
+        INC DI
+        
+        INC CL
+        MOV AX, DX
+        JMP BaseConv_FracLoop
+
+BaseConv_DoneFormatting:
+        MOV BYTE PTR [DI], '$'
+
+        MOV DH, 8
+        MOV DL, 35
+        CALL SetCursor
+        MOV AL, ' '
+        MOV BL, 8FH
+        MOV CX, 31
+        CALL PrintCharAttr
+
+        LEA SI, display_buffer
+        XOR CX, CX
+BaseConv_LenLoop:
+        
+        CMP BYTE PTR [SI], '$'
+        JE BaseConv_LenDone
+        INC CX
+        INC SI
+        JMP BaseConv_LenLoop
+BaseConv_LenDone:
+
         MOV DL, 66
         SUB DL, CL
         MOV DH, 8
@@ -2857,6 +3142,9 @@ ProcessOperator PROC
         PUSH SI
         PUSH DI
 
+        CMP base_view_mode, 1
+        JE  ProcOpDone
+
         MOV BX, AX
 
         CMP error_flag, 0
@@ -2901,6 +3189,9 @@ ProcessNEG PROC
         PUSH SI
         PUSH DI
 
+        CMP base_view_mode, 1
+        JE  ProcessNEGDone
+
         CMP error_flag, 0
         JNE ProcessNEGDone
 
@@ -2941,6 +3232,9 @@ ProcessABS PROC
         PUSH SI
         PUSH DI
 
+        CMP base_view_mode, 1
+        JE  ProcessABSDone 
+
         CMP error_flag, 0
         JNE ProcessABSDone
 
@@ -2972,6 +3266,9 @@ ProcessSQR PROC
         PUSH AX
         PUSH SI
         PUSH DI
+
+        CMP base_view_mode, 1
+        JE  ProcessSQRDone
 
         CMP error_flag, 0
         JNE ProcessSQRDone
@@ -3025,6 +3322,9 @@ ProcessMS PROC
         PUSH SI
         PUSH DI
 
+        CMP base_view_mode, 1
+        JE  ProcessMSDone
+
         CMP error_flag, 0
         JNE ProcessMSDone
 
@@ -3053,6 +3353,9 @@ ProcessMR PROC
         PUSH AX
         PUSH SI
         PUSH DI
+
+        CMP base_view_mode, 1
+        JE  ProcessMRDone
 
         CMP error_flag, 0
         JNE ProcessMRDone
@@ -3096,12 +3399,17 @@ ProcessMRDone:
 ProcessMR ENDP
 
 ProcessMC PROC
+
+        CMP base_view_mode, 1
+        JE  ProcessMCDone
+
         PUSH AX
         MOV memory_low, 0
         MOV memory_high, 0
         MOV memory_active, 0
         CALL UpdateDisplay
         POP AX
+ProcessMCDone:
         RET
 ProcessMC ENDP
 
@@ -3110,7 +3418,10 @@ ProcessPCT PROC
         PUSH AX
         PUSH SI
         PUSH DI
-   
+
+        CMP base_view_mode, 1
+        JE  PCTDone
+
         CMP error_flag, 0
         JNE PCTDone
 
@@ -3161,12 +3472,117 @@ PCTDone:
         RET
 ProcessPCT ENDP
 
+ProcessHEX PROC
+        PUSH AX
+        PUSH SI
+
+        CMP input_active, 1
+        JNE HEX_SetState
+
+        CMP input_negative, 1
+        JNE HEX_SetState
+
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+HEX_SetState:
+        MOV input_active, 0
+        MOV base_view_mode, 1
+        MOV display_base, 16
+        MOV frac_only, 0
+
+        CALL UpdateDisplay
+
+        POP SI
+        POP AX
+        RET
+ProcessHEX ENDP
+
+ProcessBIN PROC
+        PUSH AX
+        PUSH SI
+
+        CMP input_active, 1
+        JNE BIN_SetState
+
+        CMP input_negative, 1
+        JNE BIN_SetState
+
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+BIN_SetState:
+        MOV input_active, 0
+        MOV base_view_mode, 1
+        MOV display_base, 2
+        MOV frac_only, 0
+
+        CALL UpdateDisplay
+
+        POP SI
+        POP AX
+        RET
+ProcessBIN ENDP
+
+ProcessDEC PROC
+        PUSH AX
+        PUSH SI
+
+        CMP input_active, 1
+        JNE DEC_SetState
+
+        CMP input_negative, 1
+        JNE DEC_SetState
+
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+DEC_SetState:
+        MOV input_active, 0
+        MOV base_view_mode, 1
+        MOV display_base, 10
+        MOV frac_only, 0
+
+        CALL UpdateDisplay
+
+        POP SI
+        POP AX
+        RET
+ProcessDEC ENDP
+
+ProcessFRC PROC
+        PUSH AX
+        PUSH SI
+
+        CMP input_active, 1
+        JNE FRC_SetState
+
+        CMP input_negative, 1
+        JNE FRC_SetState
+
+        LEA SI, current_input_low
+        CALL Neg32
+        MOV input_negative, 0
+FRC_SetState:
+        MOV input_active, 0
+        MOV base_view_mode, 1
+        MOV frac_only, 1
+
+        CALL UpdateDisplay
+
+        POP SI
+        POP AX
+        RET
+ProcessFRC ENDP
 
 ProcessEquals PROC
         PUSH AX
         PUSH BX
         PUSH SI
         PUSH DI
+
+        CMP base_view_mode, 1
+        JE  ProcEqDone
 
         CMP error_flag, 0
         JNE ProcEqDone
